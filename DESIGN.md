@@ -46,8 +46,9 @@ Todo el juego vive en `index.html`:
 myDomino/
 ├── index.html                 # solo el esqueleto: <div id="app">, CSS y <script type="module" src="src/main.js">
 ├── styles/
+│   ├── reset.css              # reset mínimo de la página
 │   ├── tokens.css             # variables de color y tipografía, tema claro/oscuro
-│   ├── base.css               # reset, botones, paneles, formularios
+│   ├── base.css               # tipografía, botones, paneles, formularios
 │   ├── lobby.css
 │   └── table.css              # paño, fichas, mano, marcador, consejo
 ├── src/
@@ -150,8 +151,8 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 
 | Fase | Cambio | Riesgo |
 |---|---|---|
-| 0 | `DESIGN.md` y actualización del README | ninguno |
-| 1 | Sacar CSS a `styles/` y la configuración a `src/config.js`. El JS sigue igual. | bajo |
+| 0 ✅ | `DESIGN.md` y actualización del README | ninguno |
+| 1 ✅ | Sacar CSS a `styles/` y la configuración a `src/config.js`. El JS sigue igual. `config.js` es un script clásico (no módulo) hasta la fase 4, así que el juego todavía abre con doble clic. | bajo |
 | 2 | Pasar el motor a `src/engine/` como módulos ES y agregar `tests/engine.test.js`. La UI importa `E` desde ahí. | bajo: el motor ya es puro |
 | 3 | Pasar bots, especulación y consejo a `src/ai/` con `tests/ai.test.js`. | bajo |
 | 4 | Pasar Firebase, `localStorage` y `mutate` a `src/services/`. | medio: auth y transacciones |

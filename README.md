@@ -2,7 +2,7 @@
 
 Juego de dominó doble seis en el navegador, para jugar en familia desde cualquier teléfono o computadora. Puedes armar mesas multijugador en tiempo real o practicar contra la compu en tres niveles de dificultad.
 
-Está hecho con HTML, CSS y JavaScript, sin dependencias de compilación, y las partidas en línea se sincronizan con Firebase. Hoy todo vive en un solo archivo, `index.html`, y se está migrando a una estructura modular (ver [Arquitectura](#arquitectura)).
+Está hecho con HTML, CSS y JavaScript, sin dependencias de compilación, y las partidas en línea se sincronizan con Firebase. Hoy casi todo el código vive en `index.html` y se está migrando a una estructura modular (ver [Arquitectura](#arquitectura)).
 
 ## Características
 
@@ -53,12 +53,11 @@ python3 -m http.server 8000
 
 ## Usar tu propio proyecto de Firebase
 
-El archivo trae la configuración del proyecto `dominomx`. Para usar uno tuyo:
+El repo trae la configuración del proyecto `dominomx`. Para usar uno tuyo:
 
 1. Crea un proyecto en la [consola de Firebase](https://console.firebase.google.com/) y agrega una **app web**.
-2. Copia su configuración en el bloque marcado al inicio de `index.html`:
+2. Copia su configuración en `src/config.js`:
    ```js
-   // ====== PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE ======
    window.FIREBASE_CONFIG = { apiKey: "...", authDomain: "...", projectId: "...", ... };
    ```
 3. En **Authentication → Sign-in method**, habilita **Anónimo** (para invitados) y **Google**.
@@ -97,12 +96,20 @@ No dejes la base en *modo de prueba*: en ese modo cualquiera puede leer o borrar
 
 ```
 myDomino/
-├── index.html   # todo el juego: motor de reglas, bots, interfaz y sincronización
-├── DESIGN.md    # diseño de la estructura modular
+├── index.html          # motor de reglas, bots, interfaz y sincronización (JavaScript)
+├── styles/
+│   ├── reset.css       # reset mínimo de la página
+│   ├── tokens.css      # colores, tipografía y tema claro/oscuro
+│   ├── base.css        # paneles, formularios y botones
+│   ├── lobby.css       # lista de mesas
+│   └── table.css       # mesa, registro, consejo, tu mano, resultado y menú
+├── src/
+│   └── config.js       # configuración de Firebase
+├── DESIGN.md           # diseño de la estructura modular
 └── README.md
 ```
 
-Dentro de `index.html` el código está organizado en estas partes:
+Dentro de `index.html` el JavaScript está organizado en estas partes:
 
 - **Motor del juego:** reparto, jugadas válidas, comer, pasar, fin de mano y puntuación.
 - **Bots:** deducción de fichas, simulaciones Monte Carlo y heurísticas por nivel.
