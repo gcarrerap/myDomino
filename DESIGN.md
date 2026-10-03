@@ -30,7 +30,7 @@ Todo el juego vive en `index.html`:
 - **No se puede probar.** El motor y los bots solo corren dentro de la página, así que cualquier ajuste a reglas o niveles se valida jugando a mano.
 - **Revisar cambios es difícil.** Cualquier PR toca el mismo archivo de 120 KB, y los diffs de CSS, reglas y UI quedan mezclados.
 - **Hay código muerto sin detectar** (por ejemplo `userCap`, `sampleCap`, `isOwnerView` se declaran pero nunca se asignan).
-- **El cálculo pesado bloquea la pantalla.** La especulación y el Monte Carlo corren en el hilo principal; separarlos es requisito para moverlos a un Web Worker.
+- **El cálculo pesado bloquea la pantalla.** La especulación y el Monte Carlo corren en el hilo principal; separarlos es requisito para moverlos a un Web Worker (resuelto en la fase 7a).
 
 ## 2. Principios
 
@@ -74,6 +74,7 @@ myDomino/
 │   │   ├── search.js          # sampleWorld, rollout, rolloutFull, worldsFor, monteCarloMove
 │   │   ├── bots.js            # openingPlan, botMove (por nivel)
 │   │   ├── advice.js          # advise
+│   │   ├── worker.js          # Web Worker: corre botMove y advise en un hilo aparte
 │   │   └── index.js           # reexporta la API de la IA
 │   │
 │   ├── services/              # todo lo que toca el exterior
@@ -87,6 +88,7 @@ myDomino/
 │   │   ├── actions.js         # start, openTable, mutate, createTable, startPractice, leave, setView, preferencias, mano, notas, askAdvice
 │   │   ├── practice.js        # botActor, scheduleBot, openDelayMs (bots en modo práctica)
 │   │   ├── clock.js           # tickClock: reloj de turno (la interfaz solo lo pinta)
+│   │   ├── ai-client.js       # runAI: pide cálculos al worker; si no hay worker, calcula aquí
 │   │   └── index.js           # reexporta la API de la app
 │   │
 │   └── ui/                    # vista: produce HTML/SVG y conecta eventos
@@ -110,6 +112,7 @@ myDomino/
     ├── ai.test.js             # los bots solo devuelven jugadas legales y no ven fichas ajenas
     ├── services.test.js       # mesas en Firestore, transacciones, sesión, localStorage
     ├── app.test.js            # práctica, compu, reloj, preferencias, mano, notas, mesas en línea, consejo
+    ├── ai-worker.test.js      # el worker, el cliente (con un Worker de mentira) y la app mientras la compu piensa
     └── fakes/firebase.js      # Firebase de mentira en memoria para las pruebas
 ```
 
@@ -155,7 +158,7 @@ Reglas concretas:
 
 **Pruebas con `node:test`.** Node ya trae corredor de pruebas; basta un `package.json` con `"type": "module"` y `"test": "node --test"` (Node encuentra solo los archivos `*.test.js`). No se agregan dependencias.
 
-**Web Worker para la IA (después).** Con `ai/` aislado y puro, `speculate` y `monteCarloMove` pueden correr en un Worker para que la pantalla no se congele en el nivel Avanzado. Queda fuera de esta migración, pero es la razón de separar `ai/` de `engine/`.
+**Web Worker para la IA (fase 7a).** Con `ai/` aislado y puro, lo pesado puede correr en un Worker para que la pantalla no se congele. Medido en posiciones de media mano con 4 jugadores: `botMove` nivel 3 tarda ~280 ms (hasta ~540 ms) y `advise` ~260 ms (hasta ~460 ms); todo lo demás (`deduce`, `tracker`, `speculate`, `explainTile`, niveles 1 y 2) tarda de 0 a ~13 ms. Por eso **solo `botMove` y `advise` van al worker**: mover lo demás costaría más en copiar datos entre hilos de lo que ahorra. Si el navegador no puede crear el worker o este falla al cargar, `app/ai-client.js` calcula en el hilo principal como antes.
 
 ## 6. Plan de migración
 
@@ -170,7 +173,8 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 | 4 ✅ | Pasar Firebase, `localStorage` y `mutate` a `src/services/`. Lo que decide qué ver y qué mensaje mostrar (`view`, `render`, textos de error) se queda en la interfaz; los servicios solo hablan con Firebase y devuelven datos o errores. La interfaz ya importa directo de `src/services/`. | medio: auth y transacciones |
 | 5 ✅ | Introducir `app/store.js` y `app/actions.js`; quitar las variables globales de la UI. Además `app/practice.js` (bots de práctica) y `app/clock.js` (reloj de turno). La interfaz ya no tiene variables globales: lee `state`, se suscribe con `subscribe` y pide acciones. Cuando solo cambia la lista de mesas, se redibuja solo la lista (como antes), para no interrumpir a quien está escribiendo su nombre. Se borró el código muerto que habría que mover al store (`userCap`, `sampleCap`, `isOwnerView`, `sleep`, `renderPending`, `cycleNote`). | medio: es el cambio más grande |
 | 6 ✅ | Dividir la UI en `ui/screens` y `ui/components`; que la UI importe del motor y la IA en vez de usar `window.E`, y quitar el `<script>` que lo arma. `index.html` queda en 20 líneas y carga `src/main.js`. Diferencias con la propuesta: `labels.js` reúne textos compartidos por lobby, mesa y registro; `screens/seats.js` y `components/result.js` son archivos propios; el manejo de tu mano (tocar, girar, arrastrar) se queda dentro de `screens/table.js` porque depende de las jugadas válidas que calcula esa pantalla; `askAdvice` y las notas ya vivían en `app/actions.js` desde la fase 5. Para no crear ciclos, las pantallas piden redibujar con `notify()` de `app/` en lugar de importar `render`. | bajo |
-| 7 (opcional) | IA en Web Worker; SDK modular de Firebase. | medio |
+| 7a ✅ | IA en Web Worker: `ai/worker.js` y `app/ai-client.js`; la compu Avanzada y el consejo se calculan en un hilo aparte (ver §5). En una partida de práctica con las tres compus en Avanzado y pidiendo consejo cada turno, el hilo de la pantalla pasó de 21 bloqueos (el más largo de 817 ms, 6.6 s en total) a ninguno. Se borraron los estilos sobrantes de una tarjeta "Opus" que ya no existía. | medio |
+| 7b (opcional) | SDK modular de Firebase. | medio |
 
 ### Pendientes conocidos (fuera de las fases)
 

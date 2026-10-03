@@ -135,6 +135,7 @@ myDomino/
 │   │   ├── search.js      # simulaciones Monte Carlo
 │   │   ├── bots.js        # plan de salida y jugada de cada nivel
 │   │   ├── advice.js      # consejo: qué tiraría cada nivel y por qué
+│   │   ├── worker.js      # corre lo pesado (compu Avanzada, consejo) en un hilo aparte
 │   │   └── index.js       # API de la IA
 │   ├── services/       # todo lo que toca el exterior
 │   │   ├── firebase.js    # arranque, invitado, entrar con Google, salir
@@ -146,6 +147,7 @@ myDomino/
 │   │   ├── actions.js     # todo lo que cambia el estado: mesas, práctica, preferencias, consejo…
 │   │   ├── practice.js    # la compu en modo práctica
 │   │   ├── clock.js       # reloj de turno
+│   │   ├── ai-client.js   # pide los cálculos pesados al hilo aparte
 │   │   └── index.js       # API de la app
 │   └── ui/             # lo que se ve
 │       ├── render.js      # escoge la pantalla
@@ -160,6 +162,7 @@ myDomino/
 │   ├── ai.test.js      # pruebas de la IA
 │   ├── services.test.js # pruebas de los servicios
 │   ├── app.test.js     # pruebas del estado y las acciones
+│   ├── ai-worker.test.js # pruebas del hilo aparte de la IA
 │   └── fakes/          # Firebase de mentira para las pruebas
 ├── package.json        # solo para correr las pruebas
 ├── DESIGN.md           # diseño y decisiones de la estructura modular
@@ -168,7 +171,7 @@ myDomino/
 
 ### Pruebas
 
-El motor, la IA, los servicios y el estado de la app tienen pruebas que corren con Node (18 o más nuevo), sin instalar nada:
+El motor, la IA (también en su hilo aparte), los servicios y el estado de la app tienen pruebas que corren con Node (18 o más nuevo), sin instalar nada:
 
 ```bash
 npm test
@@ -178,3 +181,4 @@ npm test
 - **IA:** los tres niveles solo hacen jugadas válidas en todos los modos, el registro respeta lo que se sabe (quién pasó), el plan de salida, el consejo y las probabilidades de la especulación. Además hay una prueba de que **la compu no hace trampa**: si se reacomodan las fichas que un jugador no puede ver, su decisión y el consejo no cambian.
 - **Servicios:** con un Firebase de mentira en memoria: guardar y leer mesas (con listas dentro de listas), la lista de mesas recientes, cambios con transacción (cancelar, borrar, jugada inválida, mesa que ya no existe), entrar como invitado, entrar con Google (ventana o redirección), salir y `localStorage` bloqueado.
 - **App:** practicar (la compu en sus asientos y con sus niveles, y juega sola cuando le toca), el reloj de turno (cuenta atrás y resuelve el turno vencido una sola vez), preferencias guardadas en el dispositivo, el orden y giro de tu mano, las notas, una mesa en línea de principio a fin con un Firebase de mentira, entrar con Google y el consejo.
+- **IA en un hilo aparte:** el worker calcula la jugada y el consejo; el cliente reparte cada respuesta a quien la pidió y, si el worker no carga o el navegador no lo permite, calcula en el hilo principal. Mientras la compu piensa no se programa otra jugada; si sales de la mesa o cambia el turno, el resultado se descarta.
