@@ -27,10 +27,10 @@ window.E = { explainTile, speculate, advise, openingPlan, TUNE, LEVELS, limitMs,
 <script type="module">
 // Interfaz. Es módulo para que corra después del de arriba (los módulos se ejecutan en orden) y
 // encuentre window.E; se divide en src/ui/ y src/app/ en las fases 5 y 6 de #3.
+import { ls, initFirebase, signInWithGoogle, signOut, SKIP, makeDb, watchTableList, watchTable, saveNewTable, updateTable } from "./src/services/index.js";
 (() => {
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 
 // ---------- Fichas SVG ----------
 const PIPS = { 0: [], 1: [[1, 1]], 2: [[0, 0], [2, 2]], 3: [[0, 0], [1, 1], [2, 2]], 4: [[0, 0], [2, 0], [0, 2], [2, 2]], 5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]], 6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]] };
@@ -198,31 +198,6 @@ function levelSeg(id, lv) {
   return `<div class="seg lvl" role="group" aria-label="Nivel">${[1, 2, 3].map((l) => `<button data-lvl="${id}:${l}" aria-pressed="${lv === l}">${E.LEVELS[l]}</button>`).join("")}</div>`;
 }
 
-// Adaptador: guarda cada mesa como texto JSON (Firestore no acepta listas dentro de listas)
-function makeDb(fs) {
-  const wrap = (snap) => ({ exists: snap.exists, data: () => (snap.exists ? JSON.parse(snap.data().json) : undefined) });
-  const pack = (st) => ({ json: JSON.stringify(st), code: st.code, created: st.created || Date.now(), updated: Date.now() });
-  const docApi = (ref) => ({
-    _ref: ref,
-    onSnapshot: (ok, bad) => ref.onSnapshot((s) => ok(wrap(s)), bad),
-    get: async () => wrap(await ref.get()),
-    set: (st) => ref.set(pack(st)),
-    delete: () => ref.delete(),
-  });
-  return {
-    fs, pack, wrap,
-    doc: (path) => docApi(fs.doc(path)),
-    collection: (name) => {
-      const q = (query) => ({
-        orderBy: (f, d) => q(query.orderBy(f, d)),
-        limit: (n) => q(query.limit(n)),
-        onSnapshot: (ok, bad) => query.onSnapshot((snap) => ok({ docs: snap.docs.map(wrap) }), bad),
-      });
-      return q(fs.collection(name));
-    },
-  };
-}
-
 const deviceId = me.id;
 let authUser = null;
 const isGoogle = () => !!(authUser && !authUser.isAnonymous);
@@ -237,31 +212,16 @@ function applyUser(u) {
   if (isGoogle() && !me.name && u.displayName) { me.name = u.displayName.split(" ")[0].slice(0, 16); ls.set("dom.name", me.name); }
 }
 async function googleIn() {
-  const prov = new firebase.auth.GoogleAuthProvider();
-  prov.setCustomParameters({ prompt: "select_account" });
-  try { await firebase.auth().signInWithPopup(prov); }
+  try { await signInWithGoogle(); }
   catch (e) {
-    if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") { try { await firebase.auth().signInWithRedirect(prov); return; } catch (e2) { e = e2; } }
     if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") { view.err = e.code === "auth/unauthorized-domain" ? "Este sitio aún no está autorizado en Firebase (Authorized domains)." : "No se pudo entrar con Google."; render(); }
   }
 }
-async function googleOut() { try { await firebase.auth().signOut(); } catch {} }
+const googleOut = signOut;
 
 async function initCaps() {
   try {
-    if (!window.firebase || !window.FIREBASE_CONFIG || !window.FIREBASE_CONFIG.projectId) throw new Error("sin config");
-    firebase.initializeApp(window.FIREBASE_CONFIG);
-    const auth = firebase.auth();
-    try { await auth.getRedirectResult(); } catch {}
-    await new Promise((res) => {
-      let first = true;
-      auth.onAuthStateChanged(async (u) => {
-        if (!u) { try { await auth.signInAnonymously(); } catch (e) { console.warn(e); if (first) { first = false; res(); } } return; }
-        applyUser(u);
-        if (first) { first = false; res(); } else if (view.screen === "lobby") render();
-      });
-    });
-    db = makeDb(firebase.firestore());
+    db = makeDb(await initFirebase((u, first) => { applyUser(u); if (!first && view.screen === "lobby") render(); }));
   } catch (e) { console.warn("Firebase no disponible:", e); db = null; }
   dbTried = true; render();
   if (db) subscribeList();
@@ -269,8 +229,8 @@ async function initCaps() {
 
 function subscribeList() {
   if (!db || unsubList) return;
-  unsubList = db.collection("mesas").orderBy("created", "desc").limit(20).onSnapshot((snap) => {
-    listCache = snap.docs.map((d) => d.data()).filter(Boolean);
+  unsubList = watchTableList(db, (list) => {
+    listCache = list;
     if (view.screen === "lobby") renderTables();
   }, () => { unsubList = null; });
 }
@@ -279,32 +239,23 @@ function openTable(code) {
   view = { screen: "table", code, practice: false, sel: null, err: "" };
   if (unsubTable) unsubTable();
   tableState = null; render();
-  unsubTable = db.doc("mesas/" + code).onSnapshot((snap) => {
-    tableState = snap.exists ? snap.data() : null;
-    if (!snap.exists) { view.err = "Esta mesa ya no existe."; }
+  unsubTable = watchTable(db, code, (st) => {
+    tableState = st;
+    if (!st) { view.err = "Esta mesa ya no existe."; }
     render();
   }, (e) => { view.err = "Se perdió la conexión con la mesa. Vuelve a abrirla."; render(); });
 }
 
-const SKIP = {}; // un cambio que al final no hace falta guardar
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Aplica un cambio a la mesa: toma un candado corto, lee lo último, valida y guarda
+// Aplica un cambio a la mesa: en práctica, al estado local; en línea, con una transacción (lee lo último, valida y guarda)
 async function mutate(fn) {
   view.err = "";
   if (view.practice) {
     try { const nx = fn(structuredClone(tableState)); if (nx !== SKIP) tableState = nx; } catch (e) { view.err = e.message; }
     view.sel = null; render(); return;
   }
-  const ref = db.fs.doc("mesas/" + view.code);
   try {
-    let skipped = false;
-    await db.fs.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists) throw new Error("Esta mesa ya no existe.");
-      const next = fn(structuredClone(JSON.parse(snap.data().json)));
-      if (next === SKIP) { skipped = true; return; }
-      if (next === null) tx.delete(ref); else tx.set(ref, db.pack(next));
-    });
+    const skipped = await updateTable(db, view.code, fn);
     if (skipped) { render(); return; }
   } catch (e) {
     view.err = e.code === "permission-denied" ? "No hay permiso para guardar en esta mesa." : (e.message || "Algo falló, intenta otra vez.");
@@ -417,7 +368,7 @@ async function createTable() {
   const code = Array.from({ length: 4 }, () => letters[Math.floor(Math.random() * letters.length)]).join("");
   const st = E.newTable(code, { ...config }, me.id);
   st.seats[0] = { id: me.id, name: me.name };
-  try { await db.doc("mesas/" + code).set(st); openTable(code); }
+  try { await saveNewTable(db, st); openTable(code); }
   catch (e) { view.err = e.code === "permission-denied" ? "No hay permiso para crear mesas." : e.code === "resource-exhausted" ? "Se alcanzó el límite gratis de hoy. Intenta mañana." : "No se pudo crear la mesa."; render(); }
 }
 

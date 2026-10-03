@@ -1,0 +1,179 @@
+// Pruebas de los servicios (Firebase y localStorage) con un Firebase de mentira en memoria.
+import { test, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import { fakeFirebase, fakeFirestore } from "./fakes/firebase.js";
+import { ls, initFirebase, signInWithGoogle, signOut, SKIP, makeDb, watchTableList, watchTable, saveNewTable, updateTable } from "../src/services/index.js";
+import { newTable, deal, legalPlays, play } from "../src/engine/index.js";
+
+// Los servicios corren en el navegador; aquí `window` es el objeto global de Node
+globalThis.window = globalThis;
+
+const seeded = (seed) => () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+function mesa(code, created = 1) {
+  const st = newTable(code, { n: 2, teams: false, per: 7 }, "host");
+  st.created = created;
+  st.seats = [{ id: "a", name: "Ana" }, { id: "b", name: "Beto" }];
+  return st;
+}
+
+// ---------- localStorage ----------
+
+test("prefs: sin localStorage no truena", () => {
+  delete globalThis.localStorage;
+  assert.equal(ls.get("dom.name"), null);
+  assert.doesNotThrow(() => ls.set("dom.name", "Memo"));
+});
+
+test("prefs: si el navegador bloquea el almacenamiento, no truena", () => {
+  globalThis.localStorage = { getItem() { throw new Error("SecurityError"); }, setItem() { throw new Error("QuotaExceeded"); } };
+  assert.equal(ls.get("dom.name"), null);
+  assert.doesNotThrow(() => ls.set("dom.name", "Memo"));
+  delete globalThis.localStorage;
+});
+
+test("prefs: guarda y lee", () => {
+  const m = new Map();
+  globalThis.localStorage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)) };
+  ls.set("dom.timer", "0");
+  assert.equal(ls.get("dom.timer"), "0");
+  delete globalThis.localStorage;
+});
+
+// ---------- Mesas en Firestore ----------
+
+test("una mesa se guarda como JSON y regresa idéntica, con listas dentro de listas", async () => {
+  const fs = fakeFirestore(), db = makeDb(fs);
+  const st = deal(mesa("ABCD", 1000), seeded(1));
+  const s1 = play(st, st.hand.turn, legalPlays(st, st.hand.turn)[0].tile, "X");
+  await saveNewTable(db, s1);
+  const raw = fs._docs.get("mesas/ABCD");
+  assert.equal(typeof raw.json, "string");
+  assert.equal(raw.code, "ABCD");
+  assert.equal(raw.created, 1000);
+  assert.ok(raw.updated >= raw.created);
+  const back = (await db.doc("mesas/ABCD").get()).data();
+  assert.deepEqual(back, s1);
+  assert.ok(Array.isArray(back.hand.board[0]));
+});
+
+test("escuchar una mesa: recibe cada cambio, y null cuando la borran", async () => {
+  const db = makeDb(fakeFirestore());
+  const seen = [];
+  const stop = watchTable(db, "WXYZ", (st) => seen.push(st && st.v));
+  await saveNewTable(db, mesa("WXYZ"));
+  await updateTable(db, "WXYZ", (st) => ({ ...st, v: st.v + 1 }));
+  await updateTable(db, "WXYZ", () => null);
+  stop();
+  await saveNewTable(db, mesa("WXYZ")); // ya no escucha
+  assert.deepEqual(seen, [null, 0, 1, null]);
+});
+
+test("la lista de mesas: las 20 más recientes primero", async () => {
+  const db = makeDb(fakeFirestore());
+  for (let i = 0; i < 25; i++) await saveNewTable(db, mesa("M" + String(i).padStart(3, "0"), 1000 + i));
+  let list = null;
+  const stop = watchTableList(db, (l) => (list = l));
+  assert.equal(list.length, 20);
+  assert.equal(list[0].code, "M024");
+  assert.equal(list[19].code, "M005");
+  stop();
+});
+
+// ---------- Cambios con transacción ----------
+
+test("updateTable aplica el cambio sobre lo último guardado", async () => {
+  const fs = fakeFirestore(), db = makeDb(fs);
+  await saveNewTable(db, deal(mesa("PLAY"), seeded(2)));
+  const skipped = await updateTable(db, "PLAY", (st) => play(st, st.hand.turn, legalPlays(st, st.hand.turn)[0].tile, "X"));
+  assert.equal(skipped, false);
+  const st = (await db.doc("mesas/PLAY").get()).data();
+  assert.equal(st.hand.board.length, 1);
+});
+
+test("SKIP no guarda nada", async () => {
+  const fs = fakeFirestore(), db = makeDb(fs);
+  await saveNewTable(db, mesa("SKIP"));
+  const before = fs._docs.get("mesas/SKIP");
+  const skipped = await updateTable(db, "SKIP", () => SKIP);
+  assert.equal(skipped, true);
+  assert.equal(fs.writes, 0);
+  assert.deepEqual(fs._docs.get("mesas/SKIP"), before);
+});
+
+test("una jugada inválida no se guarda y el error llega a quien la pidió", async () => {
+  const fs = fakeFirestore(), db = makeDb(fs);
+  await saveNewTable(db, deal(mesa("BAD1"), seeded(3)));
+  await assert.rejects(updateTable(db, "BAD1", (st) => play(st, st.hand.turn, "9-9", "L")), /Jugada no válida/);
+  assert.equal(fs.writes, 0);
+});
+
+test("cambiar una mesa que ya no existe da un error claro", async () => {
+  const db = makeDb(fakeFirestore());
+  await assert.rejects(updateTable(db, "NADA", (st) => st), /Esta mesa ya no existe/);
+});
+
+test("el cambio recibe una copia: modificarla no toca lo guardado si se cancela", async () => {
+  const fs = fakeFirestore(), db = makeDb(fs);
+  await saveNewTable(db, mesa("COPY"));
+  await updateTable(db, "COPY", (st) => { st.seats[0].name = "Cambiado"; return SKIP; });
+  assert.equal((await db.doc("mesas/COPY").get()).data().seats[0].name, "Ana");
+});
+
+// ---------- Firebase: arranque y sesión ----------
+
+let fb;
+beforeEach(() => { delete globalThis.firebase; });
+
+test("sin Firebase o sin configuración, initFirebase truena (el juego sigue en modo práctica)", async () => {
+  await assert.rejects(initFirebase(() => {}, { projectId: "x" }), /sin config/);
+  fb = fakeFirebase(); globalThis.firebase = fb.firebase;
+  await assert.rejects(initFirebase(() => {}, {}), /sin config/);
+  await assert.rejects(initFirebase(() => {}, undefined), /sin config/);
+});
+
+test("sin sesión, entra como invitado y avisa del usuario una vez como 'primero'", async () => {
+  fb = fakeFirebase(); globalThis.firebase = fb.firebase;
+  const users = [];
+  const fs = await initFirebase((u, first) => users.push([u.uid, u.isAnonymous, first]), { projectId: "demo" });
+  assert.equal(fs, fb.fs);
+  assert.deepEqual(fb.calls.slice(0, 3), ["initializeApp:demo", "getRedirectResult", "signInAnonymously"]);
+  assert.deepEqual(users, [["anon1", true, true]]);
+  // después entra con Google: el aviso ya no es el primero
+  await signInWithGoogle();
+  assert.deepEqual(users[1], ["g1", false, false]);
+  assert.ok(fb.calls.includes("prompt:select_account"));
+});
+
+test("si ya había sesión, no entra como invitado", async () => {
+  fb = fakeFirebase({ user: { uid: "g9", isAnonymous: false } }); globalThis.firebase = fb.firebase;
+  const users = [];
+  await initFirebase((u, first) => users.push([u.uid, first]), { projectId: "demo" });
+  assert.ok(!fb.calls.includes("signInAnonymously"));
+  assert.deepEqual(users, [["g9", true]]);
+});
+
+test("si falla entrar como invitado, initFirebase termina igual (sin usuario)", async () => {
+  fb = fakeFirebase({ anonFails: true }); globalThis.firebase = fb.firebase;
+  const warn = console.warn; console.warn = () => {};
+  const users = [];
+  try { await initFirebase((u) => users.push(u), { projectId: "demo" }); } finally { console.warn = warn; }
+  assert.deepEqual(users, []);
+});
+
+test("Google: si el navegador bloquea la ventana, entra por redirección", async () => {
+  fb = fakeFirebase({ popup: "auth/popup-blocked" }); globalThis.firebase = fb.firebase;
+  await signInWithGoogle();
+  assert.deepEqual(fb.calls.filter((c) => c.startsWith("signIn")), ["signInWithPopup", "signInWithRedirect"]);
+});
+
+test("Google: los demás errores llegan a la interfaz con su código", async () => {
+  fb = fakeFirebase({ popup: "auth/unauthorized-domain" }); globalThis.firebase = fb.firebase;
+  await assert.rejects(signInWithGoogle(), (e) => e.code === "auth/unauthorized-domain");
+  fb = fakeFirebase({ popup: "auth/popup-blocked", redirect: "auth/operation-not-allowed" }); globalThis.firebase = fb.firebase;
+  await assert.rejects(signInWithGoogle(), (e) => e.code === "auth/operation-not-allowed");
+});
+
+test("salir nunca truena", async () => {
+  fb = fakeFirebase({ signOutFails: true }); globalThis.firebase = fb.firebase;
+  await assert.doesNotReject(signOut());
+});
