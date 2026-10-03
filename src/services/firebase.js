@@ -1,11 +1,34 @@
-// Conexión con Firebase (SDK compat cargado desde el CDN en index.html, como global `firebase`).
-// Es el único módulo que toca `firebase` directamente.
+// Conexión con Firebase (SDK compat del CDN, como global `firebase`). Es el único módulo que toca `firebase`.
 
-// Inicia Firebase y espera al primer usuario. Si no hay sesión, entra como invitado (anónimo).
+// El SDK se carga aquí, después de dibujar la pantalla, y no en el <head> de index.html: así el lobby y la
+// práctica aparecen de inmediato aunque el CDN tarde o no responda. Se usa el SDK compat porque, cargado del
+// CDN sin empaquetador, pesa menos que el modular (ver DESIGN.md §5).
+const CDN = "https://www.gstatic.com/firebasejs/10.12.2/";
+const SDK = ["firebase-app-compat.js", "firebase-auth-compat.js", "firebase-firestore-compat.js"];
+let loading = null;
+export function loadFirebaseSdk() {
+  if (window.firebase) return Promise.resolve();
+  if (!loading) {
+    // Se descargan en paralelo y se ejecutan en orden (auth y firestore necesitan app)
+    loading = Promise.all(SDK.map((f) => new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = CDN + f; s.async = false;
+      s.onload = resolve; s.onerror = () => reject(new Error("No se pudo cargar " + f));
+      document.head.appendChild(s);
+    }))).catch((e) => { loading = null; throw e; });
+  }
+  return loading;
+}
+// Solo para pruebas: olvidar la carga en curso o hecha
+export function _resetLoaderForTests() { loading = null; }
+
+// Carga el SDK, inicia Firebase y espera al primer usuario. Si no hay sesión, entra como invitado (anónimo).
 // onUser(u, first) se llama cada vez que cambia el usuario; first es true solo la primera vez.
-// Devuelve la instancia de Firestore. Truena si Firebase no está disponible o no hay configuración.
+// Devuelve la instancia de Firestore. Truena si no hay configuración o si Firebase no se pudo cargar.
 export async function initFirebase(onUser, config = window.FIREBASE_CONFIG) {
-  if (!window.firebase || !config || !config.projectId) throw new Error("sin config");
+  if (!config || !config.projectId) throw new Error("sin config");
+  await loadFirebaseSdk();
+  if (!window.firebase) throw new Error("sin config");
   firebase.initializeApp(config);
   const auth = firebase.auth();
   try { await auth.getRedirectResult(); } catch {}
