@@ -1,0 +1,1980 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<title>Dominó de la Familia</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+// ====== PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE ======
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDb1kqzLYwyZ6PdMQrXjlAGeeJhYlzXObM",
+  authDomain: "dominomx.firebaseapp.com",
+  projectId: "dominomx",
+  storageBucket: "dominomx.firebasestorage.app",
+  messagingSenderId: "330194849657",
+  appId: "1:330194849657:web:a7d2e3e77c69d02fad69a8"
+};
+// =====================================================
+</script>
+</head><body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,800&display=swap">
+<style>
+/* Layout: una sola pantalla — marcador arriba, paño verde al centro con la hilera de fichas, tu mano abajo */
+:root{
+  --bg:#eef1ec; --fg:#1d2a24; --muted:#5b6a62; --line:#d3dbd4; --card:#ffffff;
+  --felt:#1f5c49; --felt-2:#184c3c; --felt-fg:#eaf2ec; --felt-muted:#a9c4b7;
+  --tile:#fbf7ec; --tile-edge:#cfc6b0; --pip:#1b1b1b;
+  --accent:#b9812a; --accent-fg:#ffffff; --ok:#2f7d4f; --warn:#b3412f;
+  --ta:#c4553f; --tb:#2f6fa8; --note:#1f63d6; --felt-warn:#ffb4a5; --gold:#d4a53a; --gold-tile:#f3dc9a; --spec:#c9a2ff; --spec-ink:#6b3fc4;
+  --display:"Alfa Slab One", "Rockwell", Georgia, serif;
+  --body:"Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1613; --fg:#e4ebe7; --muted:#92a39a; --line:#26342e; --card:#16211d;
+  --felt:#164232; --felt-2:#103428; --felt-fg:#e8f1ec; --felt-muted:#8fb2a2;
+  --tile:#efe7d3; --tile-edge:#a99e84; --pip:#1b1b1b;
+  --accent:#e0a843; --accent-fg:#1a1306; --ok:#5cc187; --warn:#ef7a63;
+  --ta:#ef8a72; --tb:#6fa9e0; --note:#4d95ff; --gold:#e0b04a; --gold-tile:#f0d68c; --spec:#cfb0ff; --spec-ink:#cfb0ff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1613; --fg:#e4ebe7; --muted:#92a39a; --line:#26342e; --card:#16211d;
+  --felt:#164232; --felt-2:#103428; --felt-fg:#e8f1ec; --felt-muted:#8fb2a2;
+  --tile:#efe7d3; --tile-edge:#a99e84; --pip:#1b1b1b;
+  --accent:#e0a843; --accent-fg:#1a1306; --ok:#5cc187; --warn:#ef7a63;
+  --ta:#ef8a72; --tb:#6fa9e0; --note:#4d95ff; --gold:#e0b04a; --gold-tile:#f0d68c; --spec:#cfb0ff; --spec-ink:#cfb0ff; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:14px 28px;display:flex;flex-direction:column;gap:14px}
+h1{font-family:var(--display);font-weight:400;font-size:30px;letter-spacing:.5px;margin:0;line-height:1.05;text-wrap:balance}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0;font-weight:800}
+.brand{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.brand small{color:var(--muted)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+label{font-weight:700;font-size:13px}
+input[type=text]{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:100%}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{flex:1 1 auto}
+button{font:inherit;font-weight:700;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:9px 14px;min-height:40px}
+button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button.ghost{background:transparent}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,.tilebtn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.hint{color:var(--muted);font-size:13px;margin:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tables{display:flex;flex-direction:column;gap:8px}
+.trow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.trow .code{font-family:var(--display);font-size:18px;letter-spacing:1px}
+.trow .meta{color:var(--muted);font-size:13px}
+.err{color:var(--warn);font-weight:700;font-size:13px;min-height:1em;margin:0}
+
+/* Mesa */
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.top .code{font-family:var(--display);font-size:20px}
+.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.score{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card);display:flex;flex-direction:column;gap:4px}
+.score .who{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score .val{font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums;line-height:1}
+.score .bar{height:4px;background:var(--line);border-radius:3px;overflow:hidden}
+.score .bar i{display:block;height:100%;background:var(--warn)}
+.score.mine{border-color:var(--accent)}
+.felt{background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--felt-2));color:var(--felt-fg);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.12)}
+.opps{display:flex;gap:8px;flex-wrap:wrap}
+.opp{flex:1 1 120px;min-width:0;border-radius:10px;padding:8px 10px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;gap:4px;border:2px solid transparent}
+.opp.turn{border-color:var(--accent)}
+.opp{font:inherit;color:var(--felt-fg);text-align:left;cursor:pointer;min-height:0}
+.opp:hover{background:rgba(0,0,0,.26)}
+.opp .reg{float:right;font-size:11px;font-weight:700;color:var(--felt-muted);letter-spacing:.02em}
+.trk{display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:12px;background:var(--felt);overflow-x:auto}
+.trk-row{display:flex;gap:4px}
+.trk-t{display:inline-block;position:relative;line-height:0;padding:2px;border:2px solid transparent;border-radius:6px;background:none;min-height:0;cursor:pointer}
+span.trk-t{cursor:default;padding:1px}
+.trk-t.sure{border-color:var(--warn);box-shadow:0 0 0 1px var(--warn)}
+.trk-t.note-si{outline:2px dashed var(--note);outline-offset:1px}
+.trk-t.note-si::before{content:"✓";position:absolute;right:-5px;top:-7px;font:800 11px/1 var(--body);background:var(--note);color:#fff;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;z-index:1}
+.trk-t.note-no{opacity:.6}
+.trk-t.note-no::before{content:"";position:absolute;left:0;right:0;top:50%;height:3px;border-radius:2px;background:var(--note);transform:rotate(18deg);z-index:1}
+.trk-sure{margin:0;font-weight:700}
+.trk-t.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.det{border:2px solid var(--accent);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.det p{margin:0}
+.det ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.det-num{font-size:16px}
+.det-num b{color:var(--spec-ink);font-size:20px}
+.det-d{display:inline-block;min-width:34px;text-align:center;font-weight:800;border-radius:6px;padding:0 4px;font-variant-numeric:tabular-nums}
+.det-d.up{background:color-mix(in srgb,var(--ok) 22%,transparent);color:var(--ok)}
+.det-d.down{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
+.det-notes button{min-height:34px;padding:4px 10px;font-size:13px}
+.trk-cell{display:inline-flex;flex-direction:column;align-items:center;gap:1px;min-width:40px}
+.trk-pct{font-size:10px;font-weight:800;color:var(--spec);min-height:12px;font-variant-numeric:tabular-nums;line-height:12px}
+.trk-pct.lg{font-size:12px;min-height:0;color:var(--spec-ink)}
+.trk-t.real::after{content:"";position:absolute;right:-3px;bottom:-3px;width:9px;height:9px;border-radius:50%;background:var(--ok);border:2px solid var(--felt);z-index:2}
+.reveal-hand{display:flex;flex-wrap:wrap;gap:2px}
+.reveal-note{margin:0;font-size:13px;padding:8px 10px;border-radius:8px;border:1px dashed var(--ok)}
+.reveal-btn{min-height:34px;padding:4px 10px;font-size:13px}
+.reveal-btn[aria-pressed="true"]{border-color:var(--ok);color:var(--ok);background:transparent}
+.ghost-felt{background:transparent;color:var(--felt-fg);border-color:rgba(255,255,255,.35)}
+.adv-card{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.adv-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lvtag.adv-lv{background:var(--felt);color:var(--felt-fg)}
+.adv-tile{line-height:0}
+.adv-what{font-size:15px}
+.adv-card ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.adv-play{align-self:flex-start;min-height:36px;padding:6px 12px}
+.adv-agree{margin:0;font-weight:800;color:var(--ok)}
+.adv-card.opus{border-color:var(--accent);border-width:2px}
+.lvtag.opus-lv{background:var(--accent);color:var(--accent-fg)}
+.opus-wait{margin:0;font-weight:700;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.opus-wait{animation:none}}
+.trk-t.played{border-color:var(--gold);background:var(--gold);cursor:default}
+.trk-t.played svg rect{fill:var(--gold-tile)}
+.trk-played{margin:0;font-weight:700}
+.trk-played b{display:inline-block;padding:1px 6px;margin-left:4px;border-radius:6px;background:var(--gold);color:#2a1d05}
+.trk-sure b{display:inline-block;padding:1px 6px;margin-left:4px;border-radius:6px;border:2px solid var(--warn);color:var(--warn)}
+.trk-t.no{opacity:.6}
+.trk-t.no::after{content:"";position:absolute;left:0;right:0;top:50%;height:3px;border-radius:2px;background:var(--warn);transform:rotate(-18deg)}
+.trk-slot{display:inline-block;margin:4px;width:32px;height:17px;border:1px dashed var(--felt-muted);border-radius:3px;opacity:.35}
+.trk-slot.sm{width:20px;height:11px;vertical-align:middle;border-color:var(--muted);opacity:.7}
+.trk-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);align-items:center}
+.trk-legend>span{display:inline-flex;align-items:center;gap:6px}
+.trk-no{margin:0;font-weight:700}
+.trk-no b{display:inline-block;min-width:24px;text-align:center;padding:1px 6px;margin-left:4px;border-radius:6px;background:var(--warn);color:var(--card)}
+.trk-exact{margin:0;font-weight:800;color:var(--ok)}
+.lvtag{align-self:flex-start;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.14);color:var(--felt-fg)}
+.cpu{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.cpurow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.cpuname{font-weight:700;font-size:14px}
+.seg.lvl button{min-height:34px;padding:5px 10px;font-size:13px}
+.opp .nm{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opp .ct{font-size:12px;color:var(--felt-muted)}
+.backs{display:flex;gap:2px;flex-wrap:wrap}
+.backs i{width:8px;height:14px;border-radius:2px;background:var(--felt-fg);opacity:.7}
+.teamdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.board{min-height:120px;display:flex;flex-wrap:wrap;gap:3px;align-items:center;justify-content:center;padding:6px 0}
+.board .empty{color:var(--felt-muted);font-size:14px;text-align:center}
+.endbtn{background:var(--accent);color:var(--accent-fg);border:none;min-height:44px;padding:6px 12px;border-radius:10px;font-weight:800}
+.meta-line{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--felt-muted)}
+.meta-line b{color:var(--felt-fg)}
+.status{font-weight:800;font-size:16px;text-align:center;min-height:1.4em}
+.status.me{color:var(--accent)}
+.clock{font-variant-numeric:tabular-nums;color:var(--felt-muted);font-weight:700}
+.status.me .clock{color:var(--accent)}
+.clock.low{color:var(--warn)!important}
+.timer{height:4px;border-radius:3px;background:rgba(0,0,0,.25);overflow:hidden;margin-top:-6px}
+.timer i{display:block;height:100%;width:100%;background:var(--accent);transition:width .25s linear}
+.timer i.low{background:var(--warn)}
+.hand{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.tilebtn{background:none;border:none;padding:0;min-height:0;border-radius:6px;cursor:pointer;transition:transform .12s}
+.tilebtn.play{transform:translateY(-6px);filter:drop-shadow(0 3px 0 var(--accent))}
+.tilebtn.sel{transform:translateY(-10px);filter:drop-shadow(0 0 0 var(--accent)) drop-shadow(0 4px 6px rgba(0,0,0,.35))}
+.tilebtn.dim{opacity:.55;cursor:default}
+.actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.actions button{min-width:120px}
+svg.tile{display:block}
+.log{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:2px;max-height:140px;overflow:auto}
+.seats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.seat{border:1px dashed var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.seat.taken{border-style:solid}
+.seat .lbl{font-size:12px;color:var(--muted);font-weight:700}
+.overlay{position:fixed;inset:0;background:rgba(10,20,16,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal{background:var(--card);color:var(--fg);border-radius:16px;max-width:520px;width:100%;padding:18px;display:flex;flex-direction:column;gap:12px;max-height:90%;overflow:auto}
+.modal>*{flex-shrink:0}
+.modal h3{font-family:var(--display);font-weight:400;font-size:24px;margin:0}
+.res{display:flex;flex-direction:column;gap:8px}
+.resrow{display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding-bottom:6px}
+.resrow .mini{display:flex;flex-wrap:wrap;gap:2px}
+.plus{font-variant-numeric:tabular-nums;font-weight:800;color:var(--warn)}
+.muestra{display:flex;align-items:center;gap:6px}
+@media (prefers-reduced-motion:reduce){.tilebtn{transition:none}}
+/* ===== Mesa de juego a pantalla completa ===== */
+.game{height:100%;max-width:760px;margin:0 auto;padding-inline:8px;padding-block:6px;display:flex;flex-direction:column;gap:6px;box-sizing:border-box;overflow:hidden}
+.gbar{display:flex;align-items:center;gap:10px;min-height:40px}
+.menubtn{width:40px;height:40px;min-height:40px;padding:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;flex:none}
+.menubtn span{display:block;width:18px;height:2px;background:var(--fg);border-radius:1px}
+.bar-sc{flex:1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:13px;min-width:0;color:var(--muted)}
+.bar-sc .sc{white-space:nowrap}
+.bar-sc b{font-family:var(--display);font-weight:400;font-size:17px;color:var(--fg);font-variant-numeric:tabular-nums}
+.bar-sc .sc.mine b{color:var(--accent)}
+.bar-info{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.table{flex:1;min-height:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;gap:4px;
+  background:radial-gradient(ellipse at 50% 45%,var(--felt),var(--felt-2));border-radius:16px;padding:8px;color:var(--felt-fg);box-shadow:inset 0 0 0 2px rgba(0,0,0,.12)}
+.seat-top{grid-column:1/-1;display:flex;justify-content:center;min-height:0}
+.seat-left{grid-row:2;grid-column:1;align-self:center}
+.seat-right{grid-row:2;grid-column:3;align-self:center}
+.seat-left:empty,.seat-right:empty,.seat-top:empty{display:none}
+.band{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;min-height:0}
+.band .slot-l{justify-self:start;min-width:0}
+.band .slot-c{justify-self:center}
+.band .slot-r{justify-self:end;min-width:0}
+.band-bot{min-height:18px;grid-row:3;grid-column:1/-1;display:flex}
+.rail{display:flex;min-width:0;min-height:0}
+.rail:empty{display:none}
+.rail-top{grid-row:1;grid-column:1/-1;justify-content:center}
+.rail-left{grid-row:2;grid-column:1;align-items:center}
+.rail-right{grid-row:2;grid-column:3;align-items:center}
+.rl{font:inherit;color:var(--felt-fg);background:rgba(0,0,0,.2);border:2px solid transparent;border-radius:8px;padding:3px 8px;min-height:0;
+  display:flex;align-items:center;gap:6px;cursor:pointer;max-width:100%;white-space:nowrap}
+.rl.turn{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
+.rl-nm{font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.rl-info{font-size:10px;font-weight:700;color:var(--felt-warn);overflow:hidden;text-overflow:ellipsis}
+.rl-backs{display:flex;gap:2px}
+.rl-backs i{inline-size:7px;block-size:12px;border-radius:2px;background:var(--felt-fg);opacity:.7}
+.rl-rev{display:flex;gap:2px}
+/* franjas de los lados: el texto corre a lo largo de la orilla, mirando hacia la mesa */
+.rl-left,.rl-right{writing-mode:vertical-rl;padding:8px 3px;max-height:100%}
+.rl-right{transform:rotate(180deg)}
+.rl-left .teamdot,.rl-right .teamdot{margin:0 0 5px 0}
+.rl-left .rl-rev svg,.rl-right .rl-rev svg{transform:rotate(90deg)}
+.board{grid-row:2;grid-column:2;position:relative;min-height:0;min-width:0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0;gap:0}
+.board svg{display:block}
+.board .chain{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.board .side{position:absolute;top:0}
+.board .side-l{left:0}
+.board .side-r{right:0}
+.board .side:empty{display:none}
+.pb-side{width:64px;padding:4px 4px}
+.pb-side .pb-nm{font-size:12px}
+.board .empty{color:var(--felt-muted);text-align:center;font-size:14px;padding:8px}
+.ends{font-size:11px;color:var(--felt-muted);white-space:nowrap}
+.ends b{color:var(--felt-fg)}
+.pb{font:inherit;color:var(--felt-fg);background:rgba(0,0,0,.2);border:2px solid transparent;border-radius:10px;padding:5px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;min-height:0;cursor:pointer;width:74px;text-align:center}
+.pb-top{flex-direction:row;flex-wrap:wrap;justify-content:center;width:auto;max-width:100%;gap:2px 7px;padding:3px 9px}
+.band .pb{max-width:100%}
+.pb.turn{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
+.pb-nm{font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pb-ct{font-size:11px;color:var(--felt-muted);white-space:nowrap}
+.pb-ct b{font-size:15px;color:var(--felt-fg)}
+.pb-no,.pb-sure{font-size:10px;font-weight:700;color:var(--felt-warn);white-space:nowrap}
+.pb-backs{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;max-width:100%}
+.pb-backs i{width:7px;height:12px;border-radius:2px;background:var(--felt-fg);opacity:.7}
+.pb-backs.col{flex-direction:column;align-items:center}
+.pb-backs.col i{width:14px;height:7px}
+.pb-rev{display:flex;flex-wrap:wrap;gap:2px;justify-content:center}
+.pb-rev.col{flex-direction:column;align-items:center}
+.me{display:flex;flex-direction:column;gap:6px;padding-block:2px}
+.me .status{font-size:15px}
+.me .status.me{color:var(--accent)}
+.me .timer{margin-top:-2px;background:var(--line)}
+.me .hand{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:48px}
+.tilebtn{touch-action:none;-webkit-user-select:none;user-select:none}
+.tilebtn.dragging{opacity:.7;transform:scale(1.12);z-index:2}
+.hand.rotmode .tilebtn{outline:2px dashed var(--accent);outline-offset:2px;opacity:1}
+.me .actions{display:flex;gap:6px;justify-content:stretch}
+.me .actions button{flex:1;min-width:0;min-height:40px;padding:6px 6px;font-size:14px}
+.ghost-felt{background:transparent;color:var(--fg);border-color:var(--line)}
+#rot.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.sidebtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.rothint{margin:0;text-align:center;font-size:12px;color:var(--muted)}
+.me .err{text-align:center}
+.menuov{position:fixed;inset:0;background:rgba(10,20,16,.5);z-index:20;display:flex}
+.menu{background:var(--card);color:var(--fg);width:min(330px,88vw);height:100%;overflow:auto;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;box-sizing:border-box}
+.menu>*{flex-shrink:0}
+.menu-head{display:flex;flex-direction:column;gap:2px}
+.menu-head b{font-family:var(--display);font-weight:400;font-size:22px}
+.menu .scores{grid-template-columns:1fr 1fr}
+.menu .score .val small{font-family:var(--body);font-size:12px;color:var(--muted)}
+</style>
+
+<div class="wrap" id="app"></div>
+<div id="modal"></div>
+
+<script>
+// ===== Motor de dominó (funciones puras sobre el estado de la mesa) =====
+const E = (() => {
+  const T = (a, b) => (a >= b ? a + "-" + b : b + "-" + a); // canónica: mayor primero
+  const P = (t) => t.split("-").map(Number);
+  const pts = (t) => { const [a, b] = P(t); return a + b; };
+  const isDbl = (t) => { const [a, b] = P(t); return a === b; };
+  const sumHand = (h) => h.reduce((s, t) => s + pts(t), 0);
+  const TARGET = 100;
+
+  function fullSet() { const s = []; for (let a = 0; a <= 6; a++) for (let b = 0; b <= a; b++) s.push(T(a, b)); return s; }
+  function shuffle(arr, rnd = Math.random) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  // config: {n:2|3|4, teams:bool, per:7|9|14}
+  function validConfig(c) {
+    if (c.n === 2) return c.per === 7 || c.per === 14;
+    if (c.n === 3) return c.per === 7 || c.per === 9;
+    if (c.n === 4) return c.per === 7;
+    return false;
+  }
+  const hasPozo = (c) => c.n * c.per < 28 && !(c.n === 3 && c.per === 9);
+  const teamOf = (st, seat) => (st.config.teams ? seat % 2 : seat);
+  const nScores = (c) => (c.teams ? 2 : c.n);
+
+  function newTable(code, config, host) {
+    return {
+      code, config, host, created: Date.now(),
+      seats: Array(config.n).fill(null),
+      status: "lobby", scores: Array(nScores(config)).fill(0),
+      handNo: 0, lastWinner: null, hand: null, result: null, log: [], v: 0,
+    };
+  }
+
+  // Compara fichas: mula más alta primero, luego suma, luego extremo mayor
+  function tileRank(t) { const [a, b] = P(t); return (a === b ? 100 : 0) + (a + b) * 10 + a; }
+
+  function deal(st, rnd = Math.random) {
+    const c = st.config, deck = shuffle(fullSet(), rnd);
+    const hands = []; let k = 0;
+    for (let i = 0; i < c.n; i++) { hands.push(deck.slice(k, k + c.per)); k += c.per; }
+    const rest = deck.slice(k);
+    let muestra = null, pozo = [];
+    if (c.n === 3 && c.per === 9) muestra = rest[0];
+    else pozo = rest;
+    const h = { hands, pozo, muestra, board: [], turn: null, mano: null, passes: 0, openers: null, firstReq: null, drew: 0, lacks: hands.map(() => []), played: hands.map(() => []), history: [], since: Date.now() };
+    if (st.handNo === 0 || st.lastWinner === null) {
+      // Primera mano: sale la mula más alta (o la ficha más alta si no hay mulas)
+      let best = null, seat = 0;
+      hands.forEach((hh, i) => hh.forEach((t) => { if (best === null || tileRank(t) > tileRank(best)) { best = t; seat = i; } }));
+      h.turn = seat; h.openers = [seat]; h.firstReq = best;
+    } else if (c.teams) {
+      const tm = st.lastWinner; h.openers = [tm, tm + 2]; h.turn = null; // cualquiera del equipo ganador
+    } else {
+      h.turn = st.lastWinner; h.openers = [st.lastWinner];
+    }
+    return { ...st, status: "playing", handNo: st.handNo + 1, hand: h, result: null,
+      log: pushLog(st.log, `Mano ${st.handNo + 1}: repartidas ${c.per} fichas por jugador` + (muestra ? `, muestra ${muestra}` : "")), v: st.v + 1 };
+  }
+
+  function pushLog(log, msg) { return [...(log || []), msg].slice(-12); }
+  const ends = (h) => (h.board.length ? [h.board[0][0], h.board[h.board.length - 1][1]] : null);
+
+  // Jugadas legales para un asiento: [{tile, side:'L'|'R'|'X'}]
+  function legalPlays(st, seat) {
+    const h = st.hand; if (!h || st.status !== "playing") return [];
+    const hand = h.hands[seat];
+    if (!h.board.length) {
+      if (!h.openers.includes(seat)) return [];
+      if (h.turn !== null && h.turn !== seat) return [];
+      const allowed = h.firstReq ? hand.filter((t) => t === h.firstReq) : hand;
+      return allowed.map((t) => ({ tile: t, side: "X" }));
+    }
+    if (h.turn !== seat) return [];
+    const [l, r] = ends(h), out = [];
+    for (const t of hand) {
+      const [a, b] = P(t);
+      if (a === l || b === l) out.push({ tile: t, side: "L" });
+      if ((a === r || b === r) && !(l === r && (a === l || b === l))) out.push({ tile: t, side: "R" });
+    }
+    return out;
+  }
+  const canDraw = (st, seat) => st.status === "playing" && st.hand.board.length > 0 && st.hand.turn === seat && legalPlays(st, seat).length === 0 && st.hand.pozo.length > 0;
+  const canPass = (st, seat) => st.status === "playing" && st.hand.board.length > 0 && st.hand.turn === seat && legalPlays(st, seat).length === 0 && st.hand.pozo.length === 0;
+
+  const nextSeat = (st, s) => (s + 1) % st.config.n;
+  const nameOf = (st, s) => (st.seats[s] && st.seats[s].name) || `Jugador ${s + 1}`;
+
+  function resolvePending(h, seat) {
+    if (!h.lacks) h.lacks = h.hands.map(() => []);
+    if (h.pend && h.pend.seat === seat) { h.lacks[seat] = h.pend.ends.slice().sort(); h.pend = null; }
+  }
+
+  function play(st, seat, tile, side) {
+    const lp = legalPlays(st, seat).find((p) => p.tile === tile && (p.side === side || p.side === "X"));
+    if (!lp) throw new Error("Jugada no válida");
+    const h = structuredClone(st.hand);
+    const [a, b] = P(tile);
+    if (lp.side === "X") { h.board = [[a, b]]; h.left = 0; h.mano = seat; h.firstReq = null; }
+    else {
+      const [l, r] = ends(h);
+      if (lp.side === "L") { h.board.unshift(b === l ? [a, b] : [b, a]); h.left = (h.left || 0) + 1; }
+      else h.board.push(a === r ? [a, b] : [b, a]);
+    }
+    h.hands[seat] = h.hands[seat].filter((t) => t !== tile);
+    if (!h.played) h.played = h.hands.map(() => []);
+    h.played[seat].push(tile);
+    if (!h.history) h.history = [];
+    h.history.push({ s: seat, a: "play", tile, side: lp.side, ends: [h.board[0][0], h.board[h.board.length - 1][1]], forced: lp.side === "X" && !!st.hand.firstReq });
+    resolvePending(h, seat);
+    h.passes = 0; h.drew = 0;
+    let s2 = { ...st, hand: h, log: pushLog(st.log, `${nameOf(st, seat)} tiró ${tile}`), v: st.v + 1 };
+    if (!h.hands[seat].length) return endHand(s2, { type: "domino", seat });
+    h.turn = nextSeat(st, seat); h.since = Date.now();
+    return s2;
+  }
+
+  function draw(st, seat) {
+    if (!canDraw(st, seat)) throw new Error("No puedes comer");
+    const h = structuredClone(st.hand);
+    const t = h.pozo.pop(); h.hands[seat].push(t); h.drew = (h.drew || 0) + 1;
+    // Si come, no tenía ninguna punta. La ficha que acaba de comer puede pegar, así que el dato
+    // se confirma en su siguiente acción (vuelve a comer, tira o pasa).
+    resolvePending(h, seat);
+    h.lacks[seat] = [];
+    h.pend = { seat, ends: [...new Set(ends(h))] };
+    if (!h.history) h.history = [];
+    h.history.push({ s: seat, a: "draw", ends: ends(h) });
+    return { ...st, hand: h, log: pushLog(st.log, `${nameOf(st, seat)} comió`), v: st.v + 1 };
+  }
+
+  function pass(st, seat) {
+    if (!canPass(st, seat)) throw new Error("No puedes pasar: tienes jugada");
+    const h = structuredClone(st.hand);
+    h.passes += 1; h.drew = 0;
+    resolvePending(h, seat);
+    h.lacks[seat] = [...new Set([...h.lacks[seat], ...ends(h)])].sort();
+    if (!h.history) h.history = [];
+    h.history.push({ s: seat, a: "pass", ends: ends(h) });
+    let s2 = { ...st, hand: h, log: pushLog(st.log, `${nameOf(st, seat)} pasó`), v: st.v + 1 };
+    if (h.passes >= st.config.n) return endHand(s2, { type: "cerrado" });
+    h.turn = nextSeat(st, seat); h.since = Date.now();
+    return s2;
+  }
+
+  function endHand(st, how) {
+    const c = st.config, h = st.hand, n = c.n;
+    const sums = h.hands.map(sumHand);
+    const add = Array(nScores(c)).fill(0);
+    let winner; // asiento (individual) o equipo
+    const orderFromMano = []; for (let i = 0; i < n; i++) orderFromMano.push((h.mano + i) % n);
+    if (c.teams) {
+      const tsum = [sums[0] + sums[2], sums[1] + sums[3]];
+      if (how.type === "domino") winner = how.seat % 2;
+      else winner = tsum[0] === tsum[1] ? h.mano % 2 : (tsum[0] < tsum[1] ? 0 : 1);
+      add[1 - winner] = tsum[1 - winner];
+    } else if (n === 2) {
+      if (how.type === "domino") winner = how.seat;
+      else winner = sums[0] === sums[1] ? h.mano : (sums[0] < sums[1] ? 0 : 1);
+      add[1 - winner] = sums[1 - winner];
+    } else {
+      // Individual 3-4: todos se anotan sus puntos en contra
+      sums.forEach((s, i) => (add[i] = s));
+      if (how.type === "domino") winner = how.seat;
+      else { let min = Infinity; for (const s of orderFromMano) if (sums[s] < min) { min = sums[s]; winner = s; } }
+    }
+    const scores = st.scores.map((s, i) => s + add[i]);
+    const over = scores.some((s) => s >= TARGET);
+    let champion = null;
+    if (over) {
+      if (c.teams || n === 2) champion = scores[0] >= TARGET && scores[1] >= TARGET ? (scores[0] < scores[1] ? 0 : 1) : (scores[0] >= TARGET ? 1 : 0);
+      else { let min = Infinity; scores.forEach((s, i) => { if (s < min) { min = s; champion = i; } }); }
+    }
+    const result = { type: how.type, seat: how.seat ?? null, winner, add, sums, hands: h.hands, over, champion };
+    const label = how.type === "domino" ? `${nameOf(st, how.seat)} dominó` : "Juego cerrado";
+    return { ...st, hand: { ...h, turn: null }, status: over ? "gameover" : "handover", scores, lastWinner: winner, result,
+      log: pushLog(st.log, label), v: st.v + 1 };
+  }
+
+  // Tiempos: 15 s para decidir quién sale (pareja ganadora), 20 s por turno
+  const limitMs = (h) => (h && h.turn === null && !h.board.length ? 15000 : 20000);
+
+  // Se acabó el tiempo: si nadie de la pareja salió, sale la ficha más alta de los dos;
+  // si es un turno normal, come lo necesario y tira una ficha al azar (o pasa si no puede)
+  function autoMove(st, rnd = Math.random) {
+    if (st.status !== "playing") return st;
+    const h = st.hand;
+    const markAuto = (s2) => { const hh = s2.hand; if (hh && hh.history && hh.history.length) hh.history[hh.history.length - 1].auto = true; return s2; };
+    const tag = (s2, seat) => markAuto({ ...s2, log: pushLog(s2.log.slice(0, -1), `Se acabó el tiempo de ${nameOf(st, seat)}`).concat(s2.log.slice(-1)).slice(-12) }) ;
+    if (h.turn === null && !h.board.length) {
+      let best = null, seat = h.openers[0];
+      for (const s of h.openers) for (const t of h.hands[s]) if (best === null || tileRank(t) > tileRank(best)) { best = t; seat = s; }
+      const s2 = markAuto(play(st, seat, best, "X"));
+      return { ...s2, log: pushLog(s2.log.slice(0, -1), "Nadie salió a tiempo").concat(s2.log.slice(-1)).slice(-12) };
+    }
+    const seat = h.turn; let cur = st;
+    for (let guard = 0; guard < 30; guard++) {
+      const lp = legalPlays(cur, seat);
+      if (lp.length) { const p = lp[Math.floor(rnd() * lp.length)]; return tag(play(cur, seat, p.tile, p.side), seat); }
+      if (canDraw(cur, seat)) { cur = draw(cur, seat); continue; }
+      if (canPass(cur, seat)) return tag(pass(cur, seat), seat);
+      break;
+    }
+    return cur;
+  }
+
+  function newGame(st) {
+    return { ...st, status: "lobby", scores: Array(nScores(st.config)).fill(0), handNo: 0, lastWinner: null, hand: null, result: null, log: pushLog(st.log, "Nueva partida"), v: st.v + 1 };
+  }
+
+  // Registro: fichas que un jugador todavía puede tener, desde la vista de "viewer"
+  // Deducción cruzada: para cada ficha desconocida, ¿quién la puede tener de verdad?
+  // Reparte las fichas desconocidas entre los jugadores (y el pozo) respetando cuántas tiene cada uno
+  // y los números que le faltan; una ficha solo puede estar con quien deje un reparto completo posible.
+  function deduce(st, viewer) {
+    const h = st.hand;
+    const known = new Set([...(viewer >= 0 ? h.hands[viewer] : []), ...h.board.map(([a, b]) => T(a, b))]);
+    if (h.muestra) known.add(h.muestra);
+    const unknown = fullSet().filter((t) => !known.has(t));
+    const holders = [];
+    h.hands.forEach((hh, s) => {
+      if (s === viewer) return;
+      const lk = (h.lacks && h.lacks[s]) || [];
+      holders.push({ id: s, cap: hh.length, ok: (t) => { const [x, y] = P(t); return !lk.includes(x) && !lk.includes(y); } });
+    });
+    if (h.pozo.length) holders.push({ id: "pozo", cap: h.pozo.length, ok: () => true });
+    const feasible = (tiles, caps) => { // emparejamiento bipartito con capacidades
+      const slots = []; holders.forEach((H, i) => { for (let k = 0; k < caps[i]; k++) slots.push(i); });
+      if (slots.length !== tiles.length) return false;
+      const owner = Array(slots.length).fill(-1);
+      const tryT = (ti, seen) => {
+        for (let j = 0; j < slots.length; j++) {
+          if (seen[j] || !holders[slots[j]].ok(tiles[ti])) continue;
+          seen[j] = true;
+          if (owner[j] < 0 || tryT(owner[j], seen)) { owner[j] = ti; return true; }
+        }
+        return false;
+      };
+      for (let ti = 0; ti < tiles.length; ti++) if (!tryT(ti, Array(slots.length).fill(false))) return false;
+      return true;
+    };
+    const caps = holders.map((H) => H.cap);
+    const possible = {};
+    for (const t of unknown) {
+      possible[t] = [];
+      const rest = unknown.filter((x) => x !== t);
+      holders.forEach((H, i) => {
+        if (!H.ok(t) || caps[i] === 0) return;
+        const c2 = caps.slice(); c2[i]--;
+        if (feasible(rest, c2)) possible[t].push(H.id);
+      });
+    }
+    return { known, possible };
+  }
+
+  // Registro: fichas que un jugador todavía puede tener, desde la vista de "viewer"
+  function tracker(st, viewer, target) {
+    const h = st.hand; if (!h) return null;
+    const { known, possible } = deduce(st, viewer);
+    const lacks = (h.lacks && h.lacks[target]) || [];
+    const played = (h.played && h.played[target]) || [];
+    const rows = [];
+    for (let a = 6; a >= 0; a--) {
+      const row = [];
+      for (let b = a; b >= 0; b--) {
+        const t = T(a, b);
+        let state;
+        if (played.includes(t)) state = "played";
+        else if (known.has(t)) state = "gone";
+        else {
+          const p = possible[t] || [];
+          state = !p.includes(target) ? "no" : p.length === 1 ? "sure" : "maybe";
+        }
+        row.push({ t, state });
+      }
+      rows.push(row);
+    }
+    const flat = rows.flat();
+    const sure = flat.filter((x) => x.state === "sure").map((x) => x.t);
+    const maybe = flat.filter((x) => x.state === "maybe").length;
+    return { rows, lacks, sure, maybe, played, count: h.hands[target].length };
+  }
+
+  // ¿Tiene buen juego para salir? Cargado de un número (4+ con su mula, o 5+), y a lo más una mula suelta.
+  // Devuelve también con qué ficha conviene salir: la mula de su número fuerte, o una ficha de ese número.
+  function openingPlan(hand) {
+    const cnt = Array(7).fill(0), dbl = Array(7).fill(false);
+    for (const t of hand) { const [a, b] = P(t); cnt[a]++; if (b !== a) cnt[b]++; else dbl[a] = true; }
+    const loose = [0, 1, 2, 3, 4, 5, 6].filter((n) => dbl[n] && cnt[n] <= 2).length;
+    let suit = 0;
+    for (let n = 0; n <= 6; n++) if (cnt[n] > cnt[suit] || (cnt[n] === cnt[suit] && (dbl[n] && !dbl[suit] || (dbl[n] === dbl[suit] && n > suit)))) suit = n;
+    const strong = ((cnt[suit] >= 4 && dbl[suit]) || cnt[suit] >= 5) && loose <= 1;
+    let tile = null;
+    if (dbl[suit]) tile = T(suit, suit);
+    else {
+      // ficha del número fuerte cuyo otro número también tenga respaldo; si empata, la más pesada
+      let best = -1;
+      for (const t of hand) { const [a, b] = P(t); if (a !== suit && b !== suit) continue; const o = a === suit ? b : a; const sc = cnt[o] * 20 + a + b; if (sc > best) { best = sc; tile = t; } }
+    }
+    const score = cnt[suit] * 10 + (dbl[suit] ? 5 : 0) - loose * 4;
+    // Calificación 0-10: 4 de un número con su mula y sin mulas sueltas ≈ 6.5; 6 de un número con su mula = 10
+    const rating = Math.max(0, Math.min(10, (cnt[suit] - 2) * 2.5 + (dbl[suit] ? 1.5 : 0) - loose));
+    return { strong, suit, tile, score, rating, count: cnt[suit], loose };
+  }
+
+  // ===== Jugadores de la compu =====
+  // Nivel 1 (básico): tira mulas y fichas pesadas, y deja puntas que él tenga.
+  // Nivel 2 (intermedio): además busca dominar: deja puntas donde quedan pocas fichas fuera de su mano
+  //   (para que los rivales pasen), sigue los números de su pareja y decide si le conviene cerrar.
+  // Nivel 3 (avanzado): lo del 2 usando su propio registro (quién pasó, quién comió, fichas seguras)
+  //   para anticipar si el siguiente rival podrá tirar y si su pareja tendrá jugada.
+  // Ningún nivel ve fichas ajenas: solo su mano, la mesa y lo que pasó a la vista de todos.
+  const LEVELS = ["", "Básico", "Intermedio", "Avanzado"];
+  const NOISE = { on: true };
+  const TUNE = { infer: true, beta: 0.6, overs: 6, specN: 600, z: 0.8, samples: 48, blk: 0.6, k: 1.4, fr: 6, riv: 14, urg: 2, w2: 0.5, w3: 0.3, pn: 1 };
+  function newEnds(h, p) {
+    const [a, b] = P(p.tile);
+    if (p.side === "X") return [a, b];
+    const [l, r] = ends(h);
+    return p.side === "L" ? [a === l ? b : a, r] : [l, a === r ? b : a];
+  }
+  const has = (t, n) => { const [x, y] = P(t); return x === n || y === n; };
+
+  // Reparte al azar las fichas que no ve, respetando su registro. Devuelve {jugador|"pozo": [fichas]}.
+  function sampleAssign(st, seat, ded, rnd = Math.random) {
+    const h = st.hand;
+    const unknown = Object.keys(ded.possible);
+    const holders = h.hands.map((_, s) => s).filter((s) => s !== seat);
+    if (h.pozo.length) holders.push("pozo");
+    const cap0 = (id) => (id === "pozo" ? h.pozo.length : h.hands[id].length);
+    for (let tries = 0; tries < 40; tries++) {
+      const cap = {}; holders.forEach((id) => (cap[id] = cap0(id)));
+      const out = {}; holders.forEach((id) => (out[id] = []));
+      const order = unknown.slice().sort((x, y) => ded.possible[x].length - ded.possible[y].length || rnd() - 0.5);
+      let ok = true;
+      for (const t of order) {
+        const opts = ded.possible[t].filter((id) => cap[id] > 0);
+        if (!opts.length) { ok = false; break; }
+        const tot = opts.reduce((q, id) => q + cap[id], 0); let r = rnd() * tot, pickId = opts[0];
+        for (const id of opts) { r -= cap[id]; if (r <= 0) { pickId = id; break; } }
+        out[pickId].push(t); cap[pickId]--;
+      }
+      if (ok) return out;
+    }
+    return null;
+  }
+
+  // ===== Especulación: leer los tiros de los demás como decisiones =====
+  // Para un reparto imaginado, ¿qué tan probable es que cada jugador, con esa mano, hubiera tirado lo que tiró?
+  // Se usa un modelo de jugador razonable (el criterio del intermedio): tiros que él habría preferido son más
+  // probables. Los repartos que explican bien lo jugado pesan más. Solo usa lo que "viewer" puede saber.
+  function inferenceEvents(st, viewer) {
+    const h = st.hand, hist = h.history || [];
+    const lastDraw = {}; hist.forEach((e, i) => { if (e.a === "draw") lastDraw[e.s] = i; });
+    const evs = []; let cur = null; const boardSoFar = []; const playedBy = h.hands.map(() => []);
+    hist.forEach((e, i) => {
+      if (e.a === "play") {
+        const usable = e.s !== viewer && !e.forced && !e.auto && !(lastDraw[e.s] >= i);
+        if (usable) {
+          const partner = st.config.teams ? (e.s + 2) % 4 : -1;
+          evs.push({ i, s: e.s, tile: e.tile, side: e.side, before: cur, board: boardSoFar.slice(), partnerTiles: partner >= 0 ? playedBy[partner].slice() : [] });
+        }
+        boardSoFar.push(e.tile); playedBy[e.s].push(e.tile); cur = e.ends;
+      }
+    });
+    // fichas que cada jugador tiró después de cada evento (para reconstruir su mano en ese momento)
+    for (const ev of evs) ev.later = hist.filter((e, j) => j >= ev.i && e.a === "play" && e.s === ev.s).map((e) => e.tile);
+    return evs;
+  }
+  function heurScore(hand, tile, side, before, board, partnerTiles) {
+    const [a, b] = P(tile), rest = hand.filter((t) => t !== tile);
+    let ne;
+    if (side === "X" || !before) ne = [a, b];
+    else { const [l, r] = before; ne = side === "L" ? [a === l ? b : a, r] : [l, a === r ? b : a]; }
+    const nums = [...new Set(ne)];
+    const seen = [...board, tile, ...rest];
+    let sc = 0.6 * (a + b) + (a === b ? 5 : 0);
+    for (const n of nums) {
+      const mine = rest.filter((t) => has(t, n)).length;
+      const unseenN = 7 - seen.filter((t) => has(t, n)).length;
+      sc += 2.5 * Math.min(mine, 3) - 1.2 * unseenN;
+      if (partnerTiles.some((t) => has(t, n))) sc += 1.5;
+    }
+    return sc;
+  }
+  function optionsAt(hand, before) {
+    if (!before) return hand.map((t) => ({ tile: t, side: "X" }));
+    const [l, r] = before, out = [];
+    for (const t of hand) {
+      const [a, b] = P(t);
+      if (a === l || b === l) out.push({ tile: t, side: "L" });
+      if ((a === r || b === r) && !(l === r && (a === l || b === l))) out.push({ tile: t, side: "R" });
+    }
+    return out;
+  }
+  function logLikelihood(evs, handOf, parts) {
+    let ll = 0;
+    for (const ev of evs) {
+      if (parts) parts.push(0);
+      const hand = [...handOf(ev.s), ...ev.later];
+      const opts = optionsAt(hand, ev.before);
+      if (opts.length <= 1) continue;
+      const sc = opts.map((o) => TUNE.beta * heurScore(hand, o.tile, o.side, ev.before, ev.board, ev.partnerTiles));
+      const mx = Math.max(...sc), z = sc.reduce((q, v) => q + Math.exp(v - mx), 0);
+      const k = opts.findIndex((o) => o.tile === ev.tile && (o.side === ev.side || o.side === "X"));
+      if (k < 0) continue;
+      const term = sc[k] - mx - Math.log(z);
+      ll += term; if (parts) parts[parts.length - 1] = term;
+    }
+    return ll;
+  }
+  // Repartos imaginados con su peso (normalizados). n = cuántos se generan.
+  function weightedAssigns(st, viewer, n, ded, rnd = Math.random) {
+    ded = ded || deduce(st, viewer);
+    const evs = inferenceEvents(st, viewer), out = [];
+    for (let k = 0; k < n; k++) {
+      const asg = sampleAssign(st, viewer, ded, rnd); if (!asg) continue;
+      const parts = [];
+      const ll = evs.length ? logLikelihood(evs, (s) => asg[s] || [], parts) : 0;
+      out.push({ asg, ll, parts });
+    }
+    if (!out.length) return { list: [], ess: 0, events: evs.length, evs };
+    const mx = Math.max(...out.map((x) => x.ll));
+    let tot = 0; out.forEach((x) => { x.w = Math.exp(x.ll - mx); tot += x.w; });
+    out.forEach((x) => (x.w /= tot));
+    const ess = 1 / out.reduce((q, x) => q + x.w * x.w, 0);
+    return { list: out, ess, events: evs.length, evs };
+  }
+  // Probabilidad especulativa de que cada ficha no vista esté con cada jugador (o en el pozo)
+  function speculate(st, viewer, n = TUNE.specN) {
+    const ded = deduce(st, viewer), { list, ess, events, evs } = weightedAssigns(st, viewer, n, ded);
+    const prob = {};
+    for (const t of Object.keys(ded.possible)) prob[t] = {};
+    for (const { asg, w } of list) for (const id of Object.keys(asg)) for (const t of asg[id]) prob[t][id] = (prob[t][id] || 0) + w;
+    return { prob, ess, events, n: list.length, _list: list, _evs: evs, _ded: ded };
+  }
+
+  // ¿Por qué esta ficha tiene ese porcentaje? Compara con solo lo seguro y mide cuánto movió cada tiro
+  // (quitando ese tiro del cálculo y viendo cuánto cambia). Todo desde lo que "viewer" puede saber.
+  function explainTile(st, viewer, spec, tile, target) {
+    const h = st.hand, list = spec._list || [], evs = spec._evs || [], ded = spec._ded;
+    const nm = (s) => nameOf(st, s);
+    const hasT = (x) => (x.asg[target] || []).includes(tile);
+    const pFull = list.reduce((q, x) => q + (hasT(x) ? x.w : 0), 0);
+    const pBase = list.length ? list.filter(hasT).length / list.length : 0;
+    // Hechos seguros: quién no puede tenerla
+    const [a, b] = P(tile), facts = [];
+    const pos = (ded && ded.possible[tile]) || [];
+    h.hands.forEach((_, s) => {
+      if (s === viewer || s === target) return;
+      const lk = (h.lacks && h.lacks[s]) || [], miss = [a, b].filter((x, i, arr) => lk.includes(x) && arr.indexOf(x) === i);
+      if (miss.length) facts.push(`${nm(s)} no la tiene: pasó o comió cuando había ${miss.join(" y ")} en la punta.`);
+      else if (!pos.includes(s)) facts.push(`${nm(s)} no puede tenerla: contando las fichas que le quedan y lo que le falta, no le cabe.`);
+    });
+    const holders = pos.filter((id) => id !== target).map((id) => (id === "pozo" ? "el pozo" : nm(id)));
+    // Tiros que movieron el porcentaje
+    const events = [];
+    evs.forEach((ev, k) => {
+      let num = 0, den = 0;
+      for (const x of list) { const w = x.w * Math.exp(-(x.parts[k] || 0)); den += w; if (hasT(x)) num += w; }
+      if (!den) return;
+      const delta = pFull - num / den;
+      if (Math.abs(delta) < 0.03) return;
+      const opening = !ev.before;
+      const covered = opening ? null : ev.before[ev.side === "L" ? 0 : 1], other = opening ? null : ev.before[ev.side === "L" ? 1 : 0];
+      const [ea, eb] = P(ev.tile), left = opening ? null : (ea === covered ? eb : ea);
+      const what = opening ? `${nm(ev.s)} salió con ${ev.tile}` : `${nm(ev.s)} tiró ${ev.tile} en el ${covered} (la otra punta era ${other})`;
+      let why;
+      if (ev.s === target) {
+        const playable = tile !== ev.tile && optionsAt([tile], ev.before).length > 0;
+        if (delta < 0 && playable) why = `Pudo tirar la ${tile} ahí y escogió otra: si la tuviera, lo más probable es que la hubiera preferido.`;
+        else if (delta < 0 && covered !== null && (a === covered || b === covered)) why = `Tapó el ${covered}: si tuviera la ${tile}, le convenía cuidar ese número en vez de taparlo.`;
+        else if (delta < 0) why = `Su tiro tiene menos sentido si tuviera esta ficha.`;
+        else if (opening && (a === ea || a === eb || b === ea || b === eb)) why = `Quien sale con un número suele estar cargado de él, y esta ficha lleva ese número.`;
+        else if (left !== null && (a === left || b === left)) why = `Dejó el ${left} en la punta: eso se hace cuando uno guarda más fichas de ese número, como esta.`;
+        else why = `Su tiro tiene más sentido si guarda esta ficha.`;
+      } else {
+        why = delta > 0 ? `Si ${nm(ev.s)} la tuviera, su tiro tendría menos sentido; eso la hace más probable para ${nm(target)}.`
+          : `El tiro de ${nm(ev.s)} tiene más sentido si la tiene él (u otro), y eso le baja probabilidad a ${nm(target)}.`;
+      }
+      events.push({ what, why, delta, s: ev.s });
+    });
+    events.sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
+    return { pFull, pBase, facts, holders, events: events.slice(0, 5), analyzed: evs.length, samples: list.length };
+  }
+
+  function sampleWorld(st, seat, ded, rnd = Math.random) {
+    const h = st.hand;
+    const unknown = Object.keys(ded.possible);
+    const holders = h.hands.map((_, s) => s).filter((s) => s !== seat);
+    if (h.pozo.length) holders.push("pozo");
+    const cap0 = (id) => (id === "pozo" ? h.pozo.length : h.hands[id].length);
+    for (let tries = 0; tries < 40; tries++) {
+      const cap = {}; holders.forEach((id) => (cap[id] = cap0(id)));
+      const out = {}; holders.forEach((id) => (out[id] = []));
+      const order = unknown.slice().sort((x, y) => ded.possible[x].length - ded.possible[y].length || rnd() - 0.5);
+      let ok = true;
+      for (const t of order) {
+        const opts = ded.possible[t].filter((id) => cap[id] > 0);
+        if (!opts.length) { ok = false; break; }
+        // elige proporcional al espacio que le queda a cada quien
+        const tot = opts.reduce((q, id) => q + cap[id], 0); let r = rnd() * tot, pickId = opts[0];
+        for (const id of opts) { r -= cap[id]; if (r <= 0) { pickId = id; break; } }
+        out[pickId].push(t); cap[pickId]--;
+      }
+      if (!ok) continue;
+      const w = structuredClone(st);
+      holders.forEach((id) => { if (id === "pozo") w.hand.pozo = out[id].sort(() => rnd() - 0.5); else w.hand.hands[id] = out[id]; });
+      return w;
+    }
+    return null;
+  }
+  // Juega la mano hasta el final (todos con nivel intermedio) y dice qué tan bien le fue a "seat"
+  function rollout(w, seat) { return rolloutFull(w, seat).v; }
+  function rolloutFull(w, seat) {
+    let cur = w; const prev = NOISE.on; NOISE.on = false;
+    for (let g = 0; g < 200 && cur.status === "playing"; g++) {
+      const hh = cur.hand, s = hh.turn === null ? hh.openers[0] : hh.turn;
+      const m = botMove(cur, s, 2);
+      cur = m.type === "play" ? play(cur, s, m.tile, m.side) : m.type === "draw" ? draw(cur, s) : pass(cur, s);
+    }
+    NOISE.on = prev;
+    const r = cur.result; if (!r) return { v: 0, win: false };
+    const mine = teamOf(cur, seat);
+    let v = 0; r.add.forEach((x, i) => { v += i === mine ? -x : x / Math.max(1, r.add.length - 1); });
+    const win = r.winner === mine || (!cur.config.teams && r.winner === seat);
+    if (win) v += 15;
+    return { v, win };
+  }
+  // Parte del tiro del intermedio y solo lo cambia si la simulación muestra con claridad que otro es mejor
+  // Mundos para simular: si TUNE.infer, se generan más repartos y se escogen según qué tan bien explican lo jugado
+  function worldsFor(st, seat, ded, samples, infer = TUNE.infer) {
+    if (!infer) { const ws = []; for (let k = 0; k < samples; k++) { const w = sampleWorld(st, seat, ded); if (w) ws.push(w); } return ws; }
+    const { list } = weightedAssigns(st, seat, samples * TUNE.overs, ded);
+    if (!list.length) return [];
+    const ws = []; let acc = 0, u = Math.random() / samples, j = 0;
+    for (let k = 0; k < samples; k++) {
+      const target = u + k / samples;
+      while (j < list.length - 1 && acc + list[j].w < target) { acc += list[j].w; j++; }
+      const w = structuredClone(st), asg = list[j].asg;
+      for (const id of Object.keys(asg)) { if (id === "pozo") w.hand.pozo = asg[id].slice().sort(() => Math.random() - 0.5); else w.hand.hands[id] = asg[id].slice(); }
+      ws.push(w);
+    }
+    return ws;
+  }
+  function monteCarloMove(st, seat, lp, samples, base, infer) {
+    const ded = deduce(st, seat), vals = lp.map(() => []);
+    for (const w of worldsFor(st, seat, ded, samples, infer)) {
+      lp.forEach((p, i) => { vals[i].push(rollout(play(w, seat, p.tile, p.side), seat)); });
+    }
+    const bi = lp.findIndex((p) => p.tile === base.tile && p.side === base.side);
+    if (bi < 0 || vals[bi].length < 4) return base;
+    let best = base, bestLead = 0;
+    lp.forEach((p, i) => {
+      if (i === bi) return;
+      const d = vals[i].map((v, k) => v - vals[bi][k]), m = d.reduce((q, v) => q + v, 0) / d.length;
+      const sd = Math.sqrt(d.reduce((q, v) => q + (v - m) ** 2, 0) / Math.max(1, d.length - 1)), se = sd / Math.sqrt(d.length);
+      const lead = m - TUNE.z * se;
+      if (lead > bestLead) { bestLead = lead; best = p; }
+    });
+    return best;
+  }
+
+  function botMove(st, seat, level = 1) {
+    const lp = legalPlays(st, seat);
+    if (!lp.length) {
+      if (canDraw(st, seat)) return { type: "draw" };
+      if (canPass(st, seat)) return { type: "pass" };
+      return null;
+    }
+    const h = st.hand, pick = (p) => ({ type: "play", tile: p.tile, side: p.side });
+    if (lp.length === 1) return pick(lp[0]);
+    const my = h.hands[seat];
+    if (level <= 1) {
+      let best = null, bs = -1e9;
+      for (const p of lp) {
+        const [a, b] = P(p.tile), rest = my.filter((t) => t !== p.tile), ne = newEnds(h, p);
+        const match = rest.filter((t) => ne.some((n) => has(t, n))).length;
+        const sc = (a === b ? 8 : 0) + a + b + 2 * match + Math.random();
+        if (sc > bs) { bs = sc; best = p; }
+      }
+      return pick(best);
+    }
+    if (level >= 3) {
+      const b2 = botMove(st, seat, 2);
+      return pick(monteCarloMove(st, seat, lp, TUNE.samples, b2, level >= 4 ? true : TUNE.infer)); // 4 = solo para pruebas
+    }
+    const c = st.config, n = c.n;
+    const friend = (s) => s === seat || (c.teams && s % 2 === seat % 2);
+    const order = []; for (let k = 1; k < n; k++) order.push((seat + k) % n);
+    const known = new Set([...my, ...h.board.map(([a, b]) => T(a, b))]); if (h.muestra) known.add(h.muestra);
+    const unknown = fullSet().filter((t) => !known.has(t));
+    const avgPts = unknown.length ? unknown.reduce((q, t) => q + pts(t), 0) / unknown.length : 0;
+    const unseen = (num) => unknown.filter((t) => has(t, num)).length;
+    const partner = c.teams ? (seat + 2) % 4 : -1;
+    const partnerNums = new Set(partner >= 0 && h.played ? h.played[partner].flatMap(P) : []);
+    const danger = order.some((s) => !friend(s) && h.hands[s].length <= 2);
+    // Nivel 3: su propio registro
+    let ded = null, share = null;
+    if (level >= 3) {
+      ded = deduce(st, seat);
+      const cap = (id) => (id === "pozo" ? h.pozo.length : h.hands[id].length);
+      share = (t, s) => {
+        const pos = ded.possible[t] || []; if (!pos.includes(s)) return 0;
+        const tot = pos.reduce((q, id) => q + cap(id), 0); return tot ? cap(s) / tot : 0;
+      };
+    }
+    const expPts = (s) => (share ? unknown.reduce((q, t) => q + share(t, s) * pts(t), 0) : h.hands[s].length * avgPts);
+
+    let best = null, bs = -1e9;
+    for (const p of lp) {
+      const [a, b] = P(p.tile), rest = my.filter((t) => t !== p.tile), ne = newEnds(h, p);
+      const nums = [...new Set(ne)];
+      if (!rest.length) return pick(p); // dominó
+      let sc = 0.6 * (a + b) + (a === b ? 5 : 0) + (NOISE.on ? Math.random() * 0.3 : (a * 7 + b) * 1e-4);
+      const myCnt = (num) => rest.filter((t) => has(t, num)).length;
+      sc += 2.5 * nums.reduce((q, num) => q + Math.min(myCnt(num), 3), 0);
+
+      // ¿Se cierra el juego con este tiro?
+      const closes = nums.every((num) => unseen(num) === 0 && myCnt(num) === 0);
+      if (closes) {
+        const mine = sumHand(rest);
+        if (c.teams) {
+          const us = mine + expPts(partner), them = order.filter((s) => !friend(s)).reduce((q, s) => q + expPts(s), 0);
+          sc += us < them ? 300 : -300;
+        } else if (n === 2) sc += mine < expPts(order[0]) ? 300 : -300;
+        else { const avg = order.reduce((q, s) => q + expPts(s), 0) / order.length; sc += (avg - mine) * 3; }
+        if (sc > bs) { bs = sc; best = p; }
+        continue;
+      }
+
+      if (level === 2) {
+        const block = nums.reduce((q, num) => q + unseen(num), 0);
+        sc -= (danger ? 2.4 : 1.2) * block;
+        if (partner >= 0) sc += 1.5 * nums.filter((num) => partnerNums.has(num)).length;
+      } else {
+        const W = TUNE;
+        const block = nums.reduce((q, num) => q + unseen(num), 0);
+        sc -= W.blk * (danger ? 2 : 1) * block;
+        // Anticipa: ¿cuántas fichas que peguen tendrá cada jugador que sigue?
+        const wk = [1, W.w2, W.w3];
+        order.forEach((s, k) => {
+          const E = unknown.filter((t) => nums.some((num) => has(t, num))).reduce((q, t) => q + share(t, s), 0);
+          const pPlay = E <= 0 ? 0 : 1 - Math.exp(-W.k * E);
+          if (friend(s)) sc += W.fr * wk[k] * pPlay;
+          else sc += W.riv * wk[k] * (1 - pPlay) * (h.hands[s].length <= 2 ? W.urg : 1);
+        });
+        if (partner >= 0) sc += W.pn * nums.filter((num) => partnerNums.has(num)).length;
+      }
+      if (sc > bs) { bs = sc; best = p; }
+    }
+    return pick(best);
+  }
+
+  // ===== Consejo: qué tirarían los tres niveles y por qué (solo con lo que "seat" puede saber) =====
+  function advise(st, seat) {
+    const h = st.hand, lp = legalPlays(st, seat);
+    if (!lp.length) {
+      const act = canDraw(st, seat) ? "draw" : canPass(st, seat) ? "pass" : null;
+      return { none: true, action: act };
+    }
+    const c = st.config, n = c.n, my = h.hands[seat];
+    const nm = (s) => nameOf(st, s);
+    const friend = (s) => s === seat || (c.teams && s % 2 === seat % 2);
+    const order = []; for (let k = 1; k < n; k++) order.push((seat + k) % n);
+    const known = new Set([...my, ...h.board.map(([a, b]) => T(a, b))]); if (h.muestra) known.add(h.muestra);
+    const unknown = fullSet().filter((t) => !known.has(t));
+    const avgPts = unknown.length ? unknown.reduce((q, t) => q + pts(t), 0) / unknown.length : 0;
+    const unseen = (num) => unknown.filter((t) => has(t, num)).length;
+    const partner = c.teams ? (seat + 2) % 4 : -1;
+    const partnerNums = new Set(partner >= 0 && h.played ? h.played[partner].flatMap(P) : []);
+    const ded = deduce(st, seat);
+    const cap = (id) => (id === "pozo" ? h.pozo.length : h.hands[id].length);
+    const share = (t, s) => { const pos = ded.possible[t] || []; if (!pos.includes(s)) return 0; const tot = pos.reduce((q, id) => q + cap(id), 0); return tot ? cap(s) / tot : 0; };
+    const [L, R] = h.board.length ? ends(h) : [null, null];
+    const sideTxt = (p) => {
+      if (p.side === "X") return "para salir";
+      const here = p.side === "L" ? L : R, other = p.side === "L" ? R : L;
+      const both = lp.some((q) => q.tile === p.tile && q.side !== p.side);
+      return `del lado del ${here}` + (both ? ` (también cabe del lado del ${other}, pero aquí es mejor)` : "");
+    };
+    const fact = (p) => {
+      const [a, b] = P(p.tile), rest = my.filter((t) => t !== p.tile), ne = newEnds(h, p), nums = [...new Set(ne)];
+      const myCnt = (num) => rest.filter((t) => has(t, num)).length;
+      return { a, b, rest, ne, nums, myCnt, dbl: a === b, pts: a + b };
+    };
+    const pl = (k, w1, w2) => (k === 1 ? w1 : w2);
+    const endsTxt = (nums) => (nums.length === 1 ? `el ${nums[0]} en las dos puntas` : `las puntas ${nums[0]} y ${nums[1]}`);
+
+    // Básico
+    const why1 = (p) => {
+      const f = fact(p), out = [];
+      if (!f.rest.length) return ["Es tu última ficha: con esta dominas."];
+      if (f.dbl) out.push("Es mula: te la quitas antes de que se te quede.");
+      out.push(`Vale ${f.pts} puntos: se quita lo más pesado por si pierdes la mano.`);
+      const m = f.rest.filter((t) => f.nums.some((num) => has(t, num))).length;
+      out.push(m ? `Deja ${endsTxt(f.nums)}, y te quedan ${m} ${pl(m, "ficha que pega", "fichas que pegan")} ahí.` : `Deja ${endsTxt(f.nums)}; no te quedan fichas para esas puntas.`);
+      return out;
+    };
+    // Intermedio
+    const why2 = (p) => {
+      const f = fact(p), out = [];
+      if (!f.rest.length) return ["Es tu última ficha: con esta dominas."];
+      const closes = f.nums.every((num) => unseen(num) === 0 && f.myCnt(num) === 0);
+      if (closes) {
+        const mine = sumHand(f.rest);
+        if (c.teams) { const us = Math.round(mine + h.hands[partner].length * avgPts), them = Math.round(order.filter((s) => !friend(s)).reduce((q, s) => q + h.hands[s].length * avgPts, 0));
+          out.push(us < them ? `Cierra el juego y calcula que tu pareja y tú tienen menos puntos (unos ${us} contra ${them}).` : `Cierra el juego aunque calcula que tienen más puntos (unos ${us} contra ${them}); no le quedaba mejor opción.`); }
+        else out.push(`Cierra el juego: tú quedarías con ${mine} puntos.`);
+        return out;
+      }
+      for (const num of f.nums) {
+        const k = f.myCnt(num), u = unseen(num);
+        if (k >= 2) out.push(`Te quedan ${k} fichas del ${num}: controlas esa punta.`);
+        if (u === 0) out.push(`Fuera de tu mano ya no hay ningún ${num}: nadie más puede pegarle ahí.`);
+        else if (u <= 2) out.push(`Del ${num} solo quedan ${u} ${pl(u, "ficha", "fichas")} fuera de tu mano: es probable que los rivales pasen.`);
+      }
+      const pn = f.nums.filter((num) => partnerNums.has(num));
+      if (pn.length) out.push(`Sigue el ${pn.join(" y el ")} que ha jugado tu pareja.`);
+      const dz = order.filter((s) => !friend(s) && h.hands[s].length <= 2);
+      if (dz.length) out.push(`A ${dz.map(nm).join(" y a ")} le ${dz.length > 1 ? "quedan" : "queda"} poco: hay que taparle el juego.`);
+      if (f.dbl) out.push("Además es mula: te la quitas.");
+      else if (f.pts >= 9) out.push(`Además te quitas ${f.pts} puntos.`);
+      if (!out.length) out.push(`Es la que deja ${endsTxt(f.nums)} con menos riesgo y te quita ${f.pts} puntos.`);
+      return out;
+    };
+    // Avanzado (con detalle de la simulación)
+    const b2m = botMove(st, seat, 2), b2 = lp.find((q) => q.tile === b2m.tile && q.side === b2m.side) || lp[0];
+    let b3 = b2, sim = null;
+    if (lp.length > 1) {
+      const vals = lp.map(() => []), wins = lp.map(() => 0); let ns = 0;
+      for (const w of worldsFor(st, seat, ded, TUNE.samples)) {
+        ns++;
+        lp.forEach((p, i) => { const r = rolloutFull(play(w, seat, p.tile, p.side), seat); vals[i].push(r.v); if (r.win) wins[i]++; });
+      }
+      const bi = lp.indexOf(b2);
+      if (ns >= 4) {
+        let bestLead = 0;
+        lp.forEach((p, i) => {
+          if (i === bi) return;
+          const d = vals[i].map((v, k) => v - vals[bi][k]), m = d.reduce((q, v) => q + v, 0) / d.length;
+          const sd = Math.sqrt(d.reduce((q, v) => q + (v - m) ** 2, 0) / Math.max(1, d.length - 1));
+          const lead = m - TUNE.z * sd / Math.sqrt(d.length);
+          if (lead > bestLead) { bestLead = lead; b3 = p; }
+        });
+        const i3 = lp.indexOf(b3), mean = (i) => vals[i].reduce((q, v) => q + v, 0) / vals[i].length;
+        sim = { ns, win3: Math.round(100 * wins[i3] / ns), win2: Math.round(100 * wins[bi] / ns), gain: mean(i3) - mean(bi), same: i3 === bi };
+      }
+    }
+    const why3 = (p) => {
+      const f = fact(p), out = [];
+      if (!f.rest.length) return ["Es tu última ficha: con esta dominas."];
+      if (sim) {
+        if (sim.same) out.push(`Probó tus ${lp.length} tiros posibles en ${sim.ns} repartos que cuadran con tu registro y con cómo ha tirado cada quien, y confirma el tiro del intermedio.`);
+        else out.push(`Cambia el tiro del intermedio: en ${sim.ns} repartos que cuadran con tu registro y con cómo ha tirado cada quien, este salió en promedio ${sim.gain.toFixed(1)} puntos mejor por mano.`);
+        out.push(`Ganas la mano en ${sim.win3}% de esas simulaciones` + (sim.same ? "." : ` (con el tiro del intermedio, ${sim.win2}%).`));
+      }
+      const nx = order[0];
+      if (nx !== undefined && !friend(nx)) {
+        const lk = (h.lacks && h.lacks[nx]) || [];
+        const known = f.nums.filter((num) => lk.includes(num));
+        if (known.length === f.nums.length) out.push(`${nm(nx)} va después y ya se sabe que no tiene ${f.nums.join(" ni ")}: le toca ${h.pozo.length ? "comer" : "pasar"}.`);
+        else {
+          const pNone = unknown.filter((t) => f.nums.some((num) => has(t, num))).reduce((q, t) => q * (1 - share(t, nx)), 1);
+          out.push(`Según tu registro, hay como ${Math.round(100 * pNone)}% de probabilidad de que ${nm(nx)}, que tira después, no tenga ${f.nums.join(" ni ")}.`);
+        }
+      }
+      if (partner >= 0) {
+        const pHas = 1 - unknown.filter((t) => f.nums.some((num) => has(t, num))).reduce((q, t) => q * (1 - share(t, partner)), 1);
+        if (pHas >= 0.6) out.push(`Y es probable (${Math.round(100 * pHas)}%) que tu pareja tenga con qué seguir.`);
+      }
+      return out;
+    };
+    const b1m = botMove(st, seat, 1), b1 = lp.find((q) => q.tile === b1m.tile && q.side === b1m.side) || lp[0];
+    const card = (p, why) => ({ tile: p.tile, side: p.side, sideText: sideTxt(p), reasons: why(p) });
+    return { none: false, only: lp.length === 1, levels: [card(b1, why1), card(b2, why2), card(b3, why3)] };
+  }
+
+  return { explainTile, speculate, advise, openingPlan, TUNE, LEVELS, limitMs, autoMove, deduce, botMove, tracker, T, P, pts, isDbl, sumHand, fullSet, validConfig, hasPozo, teamOf, nScores, newTable, deal, legalPlays, canDraw, canPass, play, draw, pass, newGame, ends, nameOf, TARGET };
+})();
+
+
+</script>
+<script>
+(() => {
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+// ---------- Fichas SVG ----------
+const PIPS = { 0: [], 1: [[1, 1]], 2: [[0, 0], [2, 2]], 3: [[0, 0], [1, 1], [2, 2]], 4: [[0, 0], [2, 0], [0, 2], [2, 2]], 5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]], 6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]] };
+function half(n, ox, oy, s) {
+  return PIPS[n].map(([x, y]) => `<circle cx="${ox + s * (0.22 + x * 0.28)}" cy="${oy + s * (0.22 + y * 0.28)}" r="${s * 0.085}" fill="var(--pip)"/>`).join("");
+}
+function tileSVG(a, b, vertical, s) {
+  const w = vertical ? s : 2 * s, h = vertical ? 2 * s : s;
+  const line = vertical ? `<line x1="${s * .15}" y1="${s}" x2="${s * .85}" y2="${s}" stroke="var(--tile-edge)" stroke-width="1.5"/>` : `<line x1="${s}" y1="${s * .15}" x2="${s}" y2="${s * .85}" stroke="var(--tile-edge)" stroke-width="1.5"/>`;
+  const p2 = vertical ? half(b, 0, s, s) : half(b, s, 0, s);
+  return `<svg class="tile" width="${w}" height="${h}" viewBox="-1 -1 ${w + 2} ${h + 2}" aria-label="${a}-${b}"><rect x="0" y="0" width="${w}" height="${h}" rx="${s * .14}" fill="var(--tile)" stroke="var(--tile-edge)" stroke-width="1.2"/>${line}${half(a, 0, 0, s)}${p2}</svg>`;
+}
+
+// ---------- Cadena en serpiente: sale del centro, crece a los dos lados y da vuelta en las orillas ----------
+function tileG(x, y, w, h, v1, v2, s) {
+  const vert = h > w, g = 1; // v1 = izquierda/arriba, v2 = derecha/abajo
+  const line = vert ? `<line x1="${x + s * .18}" y1="${y + s}" x2="${x + s * .82}" y2="${y + s}" stroke="var(--tile-edge)" stroke-width="1.3"/>`
+    : `<line x1="${x + s}" y1="${y + s * .18}" x2="${x + s}" y2="${y + s * .82}" stroke="var(--tile-edge)" stroke-width="1.3"/>`;
+  return `<g><rect x="${x + g}" y="${y + g}" width="${w - 2 * g}" height="${h - 2 * g}" rx="${s * .14}" fill="var(--tile)" stroke="var(--tile-edge)" stroke-width="1.1"/>${line}${half(v1, x, y, s)}${vert ? half(v2, x, y + s, s) : half(v2, x + s, y, s)}</g>`;
+}
+// Si alguna vuelta no puede evitar una mula, "recorre" la cadena: prueba moviendo la ficha de salida
+// hacia un lado u otro hasta que todas las vueltas caigan en fichas normales.
+// Acomoda la cadena: primero la recorre según cuántas fichas tiene cada lado (para no dar vuelta en un lado
+// mientras al otro le sobra espacio); luego, si alguna vuelta no puede evitar una mula, la recorre un poco más.
+function layoutChain(board, origin, W, s) {
+  const lenOf = (t) => (t[0] === t[1] ? s : 2 * s);
+  const lenR = board.slice(origin + 1).reduce((q, t) => q + lenOf(t), 0);
+  const lenL = board.slice(0, origin).reduce((q, t) => q + lenOf(t), 0);
+  const half0 = board[origin][0] === board[origin][1] ? s / 2 : s;
+  const lim = Math.max(0, W / 2 - half0 - 2 - 2 * s);   // hasta dónde se puede recorrer la salida
+  const base = Math.max(-lim, Math.min(lim, (lenL - lenR) / 2));
+  let best = null;
+  for (let k = 0; k <= 12; k++) {
+    const shift = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * s;
+    if (Math.abs(shift) > lim + 0.5 && k) continue;
+    const r = layoutChainAt(board, origin, W, s, shift);
+    if (!best || r.fb < best.fb) best = r;
+    if (!r.fb) break;
+  }
+  // último recurso: probar recorridos en toda la mesa
+  for (let k = 1; best.fb && k <= 80; k++) {
+    const shift = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * s / 4;
+    if (Math.abs(shift) > W / 2 - half0 - 2) continue;
+    const r = layoutChainAt(board, origin, W, s, shift);
+    if (r.fb < best.fb) best = r;
+  }
+  best.rects.fb = best.fb;
+  return best.rects;
+}
+function layoutChainAt(board, origin, W, s, shift) {
+  const m = 2, rects = []; let fb = 0;
+  const cxo = W / 2 + shift;
+  const H = (x, yc, d, near, far) => { // horizontal a lo largo de la fila
+    const x0 = d > 0 ? x : x - 2 * s;
+    rects.push({ x: x0, y: yc - s / 2, w: 2 * s, h: s, v1: d > 0 ? near : far, v2: d > 0 ? far : near });
+  };
+  const [oa, ob] = board[origin];
+  if (oa === ob) rects.push({ x: cxo - s / 2, y: -s, w: s, h: 2 * s, v1: oa, v2: ob });
+  else rects.push({ x: cxo - s, y: -s / 2, w: 2 * s, h: s, v1: oa, v2: ob });
+  const half0 = oa === ob ? s / 2 : s;
+  // Recorre un brazo de la cadena. Las mulas van atravesadas y nunca junto a una vuelta: ni la última
+  // ficha de la fila, ni la que da la vuelta (C), ni la primera de la nueva fila (F) pueden ser mula.
+  // La vuelta baja desde debajo de la punta de la última ficha, así las filas quedan bien separadas.
+  // Si no hay un buen punto para girar, se cuenta (fb) y layoutChain recorre la cadena o achica las fichas.
+  const walk = (tiles, d, v) => {
+    let x = cxo + d * half0, yc = 0, i = 0, lastDbl = oa === ob;
+    const dbl = (k) => !!tiles[k] && tiles[k][0] === tiles[k][1];
+    const len = (k) => (dbl(k) ? s : 2 * s);
+    const fitsAt = (xx, k) => (d > 0 ? xx + len(k) <= W - m : xx - len(k) >= m);
+    const placeRow = (k) => {
+      const [near, far] = tiles[k];
+      if (dbl(k)) rects.push({ x: d > 0 ? x : x - s, y: yc - s, w: s, h: 2 * s, v1: near, v2: far });
+      else H(x, yc, d, near, far);
+      x += d * len(k); lastDbl = dbl(k);
+    };
+    while (i < tiles.length) {
+      let xx = x, k = i;
+      while (k < tiles.length && fitsAt(xx, k)) { xx += d * len(k); k++; }
+      if (k >= tiles.length) { while (i < tiles.length) placeRow(i++); break; }
+      let j = -1;
+      for (let q = k; q >= i; q--) {
+        const before = q > i ? dbl(q - 1) : lastDbl;
+        if (!before && !dbl(q) && !dbl(q + 1)) { j = q; break; }
+      }
+      if (j < 0) { j = k; fb++; }
+      while (i < j) placeRow(i++);
+      // C: baja (o sube) desde debajo de la punta de la última ficha
+      const [near, far] = tiles[j], cx0 = d > 0 ? x - s : x;
+      const reach = lastDbl ? s : s / 2; // hasta dónde llega la última ficha hacia abajo/arriba
+      const top = v > 0 ? yc + reach : yc - reach - 2 * s;
+      rects.push({ x: cx0, y: top, w: s, h: 2 * s, v1: v > 0 ? near : far, v2: v > 0 ? far : near });
+      d = -d; let yTop = v > 0 ? top + 2 * s : top; i = j + 1;
+      if (dbl(i)) fb++;
+      while (i < tiles.length && dbl(i)) { // solo en el caso extremo
+        const [n2, f2] = tiles[i];
+        rects.push({ x: d < 0 ? cx0 - s : cx0, y: v > 0 ? yTop : yTop - s, w: 2 * s, h: s, v1: n2, v2: f2 });
+        yTop += v * s; i++;
+      }
+      if (i >= tiles.length) break;
+      // F: primera ficha de la nueva fila, con su punta pegada al final de la vuelta
+      const [n3, f3] = tiles[i]; yc = yTop + v * s / 2;
+      if (d < 0) { rects.push({ x: cx0 - s, y: yc - s / 2, w: 2 * s, h: s, v1: f3, v2: n3 }); x = cx0 - s; }
+      else { rects.push({ x: cx0, y: yc - s / 2, w: 2 * s, h: s, v1: n3, v2: f3 }); x = cx0 + 2 * s; }
+      lastDbl = false; i++;
+    }
+  };
+  walk(board.slice(origin + 1).map(([a, b]) => [a, b]), 1, 1);
+  walk(board.slice(0, origin).reverse().map(([a, b]) => [b, a]), -1, -1);
+  return { rects, fb };
+}
+// Dibuja la cadena en el espacio W×H. vertical = crece hacia arriba y abajo (hacia los jugadores de arriba y abajo);
+// si no, hacia los lados. Escoge el tamaño de ficha más grande con el que cabe toda la cadena.
+// Dibuja la cadena en el espacio W×H. vertical = crece hacia arriba y abajo; si no, hacia los lados.
+// "budget" = espacio transversal que puede ocupar (para no tapar a los jugadores de los lados).
+// Escoge la ficha más grande con la que cabe todo y devuelve también el rectángulo que ocupa.
+function chainSVG(board, origin, W, H, vertical, budget) {
+  const along = vertical ? H : W, across = vertical ? W : H, room = Math.min(across, budget || across);
+  // la ficha más grande que quepa; si con ella alguna mula queda en una vuelta, prueba hasta 4 tamaños más chicos
+  let pick = null, firstFit = null;
+  for (let s = 24; s >= 9; s--) {
+    const rs = layoutChain(board, origin, along, s);
+    let a0 = Infinity, a1 = -Infinity;
+    rs.forEach((r) => { a0 = Math.min(a0, r.y); a1 = Math.max(a1, r.y + r.h); });
+    if (a1 - a0 + 4 > room) continue;
+    const cand = { s, rects: rs, y0: a0, y1: a1 };
+    if (!firstFit) firstFit = cand;
+    if (!rs.fb) { pick = cand; break; }
+    if (s <= firstFit.s - 4) break;
+  }
+  if (!pick) pick = firstFit || (() => { const rs = layoutChain(board, origin, along, 9); let a0 = Infinity, a1 = -Infinity; rs.forEach((r) => { a0 = Math.min(a0, r.y); a1 = Math.max(a1, r.y + r.h); }); return { s: 9, rects: rs, y0: a0, y1: a1 }; })();
+  const s = pick.s, rects = pick.rects, y0 = pick.y0, y1 = pick.y1;
+  const span = y1 - y0 + 4, off = (across - span) / 2 - y0 + 2;
+  let x0 = Infinity, x1 = -Infinity;
+  rects.forEach((r) => { x0 = Math.min(x0, r.x); x1 = Math.max(x1, r.x + r.w); });
+  const tiles = rects.map((r) => vertical
+    ? tileG(r.y + off, r.x, r.h, r.w, r.v1, r.v2, s)
+    : tileG(r.x, r.y + off, r.w, r.h, r.v1, r.v2, s)).join("");
+  const box = vertical ? { left: y0 + off, right: y1 + off, top: x0, bottom: x1 } : { left: x0, right: x1, top: y0 + off, bottom: y1 + off };
+  return { svg: `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cadena de ${board.length} fichas">${tiles}</svg>`, box };
+}
+
+// ---------- Identidad y almacenamiento ----------
+let me = { id: ls.get("dom.dev") || ("d" + Math.random().toString(36).slice(2, 10)), name: ls.get("dom.name") || "" };
+ls.set("dom.dev", me.id);
+let db = null, dbTried = false, userCap = null, sampleCap = null, isOwnerView = false;
+// Especulación cacheada por turno y por quien mira (es un cálculo de unas décimas de segundo)
+let specCache = { key: null, viewer: null, data: null };
+function specFor(st, viewer) {
+  const key = turnKey(st) + "|" + (st.hand && st.hand.history ? st.hand.history.length : 0);
+  if (specCache.key !== key || specCache.viewer !== viewer) specCache = { key, viewer, data: E.speculate(st, viewer) };
+  return specCache.data;
+}
+// "Ver manos": solo para evaluar la especulación. Solo cambia lo que TÚ ves; la compu y Claude nunca ven fichas ajenas.
+const canReveal = () => view.practice || isOwnerView;
+let view = { screen: "lobby", code: null, practice: false, sel: null, err: "" };
+let tableState = null, unsubTable = null, unsubList = null, listCache = [];
+let config = { n: 4, teams: true, per: 7, timer: ls.get("dom.timer") !== "0" };
+const timerOn = (st) => st && st.config && st.config.timer !== false; // mesas viejas: con tiempo
+const BOT_NAMES = ["Lupe", "Toño", "Chuy"];
+let botLevels = [2, 2, 2];
+try { const bl = JSON.parse(ls.get("dom.botLevels") || "null"); if (Array.isArray(bl) && bl.length === 3) botLevels = bl.map((x) => Math.min(3, Math.max(1, +x || 2))); } catch {}
+const saveLevels = () => ls.set("dom.botLevels", JSON.stringify(botLevels));
+const LEVEL_HELP = { 1: "Tira mulas y fichas pesadas.", 2: "Busca dominar: hacer pasar a los rivales y ayudar a su pareja.", 3: "Como el intermedio, pero imagina dónde están las fichas usando su registro y leyendo los tiros de los demás, y prueba cada tiro hasta el final de la mano." };
+function levelSeg(id, lv) {
+  return `<div class="seg lvl" role="group" aria-label="Nivel">${[1, 2, 3].map((l) => `<button data-lvl="${id}:${l}" aria-pressed="${lv === l}">${E.LEVELS[l]}</button>`).join("")}</div>`;
+}
+
+// Adaptador: guarda cada mesa como texto JSON (Firestore no acepta listas dentro de listas)
+function makeDb(fs) {
+  const wrap = (snap) => ({ exists: snap.exists, data: () => (snap.exists ? JSON.parse(snap.data().json) : undefined) });
+  const pack = (st) => ({ json: JSON.stringify(st), code: st.code, created: st.created || Date.now(), updated: Date.now() });
+  const docApi = (ref) => ({
+    _ref: ref,
+    onSnapshot: (ok, bad) => ref.onSnapshot((s) => ok(wrap(s)), bad),
+    get: async () => wrap(await ref.get()),
+    set: (st) => ref.set(pack(st)),
+    delete: () => ref.delete(),
+  });
+  return {
+    fs, pack, wrap,
+    doc: (path) => docApi(fs.doc(path)),
+    collection: (name) => {
+      const q = (query) => ({
+        orderBy: (f, d) => q(query.orderBy(f, d)),
+        limit: (n) => q(query.limit(n)),
+        onSnapshot: (ok, bad) => query.onSnapshot((snap) => ok({ docs: snap.docs.map(wrap) }), bad),
+      });
+      return q(fs.collection(name));
+    },
+  };
+}
+
+const deviceId = me.id;
+let authUser = null;
+const isGoogle = () => !!(authUser && !authUser.isAnonymous);
+function authBox() {
+  if (!dbTried || !db) return "";
+  if (isGoogle()) return `<div class="row"><p class="hint" style="flex:1">Conectado con Google: <b>${esc(authUser.email || authUser.displayName || "")}</b></p><button class="ghost" id="gout">Salir</button></div>`;
+  return `<div class="row"><button id="gin">Entrar con Google</button><p class="hint" style="flex:1">o sigue como invitado. Con Google eres el mismo jugador en cualquier teléfono.</p></div>`;
+}
+function applyUser(u) {
+  authUser = u;
+  me.id = isGoogle() ? "g_" + u.uid : deviceId;
+  if (isGoogle() && !me.name && u.displayName) { me.name = u.displayName.split(" ")[0].slice(0, 16); ls.set("dom.name", me.name); }
+}
+async function googleIn() {
+  const prov = new firebase.auth.GoogleAuthProvider();
+  prov.setCustomParameters({ prompt: "select_account" });
+  try { await firebase.auth().signInWithPopup(prov); }
+  catch (e) {
+    if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") { try { await firebase.auth().signInWithRedirect(prov); return; } catch (e2) { e = e2; } }
+    if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") { view.err = e.code === "auth/unauthorized-domain" ? "Este sitio aún no está autorizado en Firebase (Authorized domains)." : "No se pudo entrar con Google."; render(); }
+  }
+}
+async function googleOut() { try { await firebase.auth().signOut(); } catch {} }
+
+async function initCaps() {
+  try {
+    if (!window.firebase || !window.FIREBASE_CONFIG || !window.FIREBASE_CONFIG.projectId) throw new Error("sin config");
+    firebase.initializeApp(window.FIREBASE_CONFIG);
+    const auth = firebase.auth();
+    try { await auth.getRedirectResult(); } catch {}
+    await new Promise((res) => {
+      let first = true;
+      auth.onAuthStateChanged(async (u) => {
+        if (!u) { try { await auth.signInAnonymously(); } catch (e) { console.warn(e); if (first) { first = false; res(); } } return; }
+        applyUser(u);
+        if (first) { first = false; res(); } else if (view.screen === "lobby") render();
+      });
+    });
+    db = makeDb(firebase.firestore());
+  } catch (e) { console.warn("Firebase no disponible:", e); db = null; }
+  dbTried = true; render();
+  if (db) subscribeList();
+}
+
+function subscribeList() {
+  if (!db || unsubList) return;
+  unsubList = db.collection("mesas").orderBy("created", "desc").limit(20).onSnapshot((snap) => {
+    listCache = snap.docs.map((d) => d.data()).filter(Boolean);
+    if (view.screen === "lobby") renderTables();
+  }, () => { unsubList = null; });
+}
+
+function openTable(code) {
+  view = { screen: "table", code, practice: false, sel: null, err: "" };
+  if (unsubTable) unsubTable();
+  tableState = null; render();
+  unsubTable = db.doc("mesas/" + code).onSnapshot((snap) => {
+    tableState = snap.exists ? snap.data() : null;
+    if (!snap.exists) { view.err = "Esta mesa ya no existe."; }
+    render();
+  }, (e) => { view.err = "Se perdió la conexión con la mesa. Vuelve a abrirla."; render(); });
+}
+
+const SKIP = {}; // un cambio que al final no hace falta guardar
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Aplica un cambio a la mesa: toma un candado corto, lee lo último, valida y guarda
+async function mutate(fn) {
+  view.err = "";
+  if (view.practice) {
+    try { const nx = fn(structuredClone(tableState)); if (nx !== SKIP) tableState = nx; } catch (e) { view.err = e.message; }
+    view.sel = null; render(); return;
+  }
+  const ref = db.fs.doc("mesas/" + view.code);
+  try {
+    let skipped = false;
+    await db.fs.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new Error("Esta mesa ya no existe.");
+      const next = fn(structuredClone(JSON.parse(snap.data().json)));
+      if (next === SKIP) { skipped = true; return; }
+      if (next === null) tx.delete(ref); else tx.set(ref, db.pack(next));
+    });
+    if (skipped) { render(); return; }
+  } catch (e) {
+    view.err = e.code === "permission-denied" ? "No hay permiso para guardar en esta mesa." : (e.message || "Algo falló, intenta otra vez.");
+  }
+  view.sel = null; render();
+}
+
+// ---------- Helpers de mesa ----------
+function mySeat(st) {
+  if (!st) return -1;
+  if (view.practice) return 0;
+  return st.seats.findIndex((s) => s && s.id === me.id);
+}
+function modeLabel(c) {
+  return modeLabel0(c) + (c.timer === false ? " · sin límite de tiempo" : "");
+}
+function modeLabel0(c) {
+  const base = c.n === 4 ? (c.teams ? "4 jugadores · parejas" : "4 jugadores · individual") : `${c.n} jugadores`;
+  const extra = c.n === 3 && c.per === 9 ? "9 fichas + muestra" : c.n === 2 && c.per === 14 ? "14 fichas, sin pozo" : c.n * c.per < 28 ? "7 fichas + pozo" : "7 fichas";
+  return `${base} · ${extra}`;
+}
+function scoreLabels(st) {
+  const c = st.config;
+  if (c.teams) return [0, 1].map((t) => `${E.nameOf(st, t)} y ${E.nameOf(st, t + 2)}`);
+  return st.seats.map((_, i) => E.nameOf(st, i));
+}
+const teamColor = (t) => (t === 0 ? "var(--ta)" : "var(--tb)");
+
+// ---------- Render ----------
+let handDragging = false, renderPending = false;
+function render() {
+  if (handDragging) { renderPending = true; return; } // no redibujar a medio arrastre
+  const app = $("#app");
+  if (view.screen === "lobby") return renderLobby(app);
+  return renderTable(app);
+}
+
+function renderLobby(app) {
+  app.className = "wrap";
+  const c = config;
+  const perOpts = c.n === 2 ? [[7, "7 fichas, se come"], [14, "14 fichas, sin pozo"]] : c.n === 3 ? [[9, "9 fichas + muestra"], [7, "7 fichas, se come"]] : [[7, "7 fichas"]];
+  app.innerHTML = `
+    <div class="brand"><h1>Dominó de la Familia</h1><small>Partidas a ${E.TARGET} puntos</small></div>
+    <section class="panel">
+      <label for="nm">Tu nombre en la mesa</label>
+      <input type="text" id="nm" maxlength="16" placeholder="Ej. Barbara" value="${esc(me.name)}">
+      ${authBox()}
+    </section>
+    <section class="panel">
+      <h2>Nueva mesa</h2>
+      <div class="seg" role="group" aria-label="Jugadores">
+        ${[2, 3, 4].map((n) => `<button data-n="${n}" aria-pressed="${c.n === n}">${n} jugadores</button>`).join("")}
+      </div>
+      ${c.n === 4 ? `<div class="seg" role="group" aria-label="Modalidad">
+        <button data-teams="1" aria-pressed="${c.teams}">Parejas</button>
+        <button data-teams="0" aria-pressed="${!c.teams}">Individual</button></div>` : ""}
+      ${perOpts.length > 1 ? `<div class="seg" role="group" aria-label="Fichas">${perOpts.map(([p, l]) => `<button data-per="${p}" aria-pressed="${c.per === p}">${l}</button>`).join("")}</div>` : ""}
+      <div class="seg" role="group" aria-label="Límite de tiempo">
+        <button data-timer="1" aria-pressed="${c.timer}">Con tiempo (20 s)</button>
+        <button data-timer="0" aria-pressed="${!c.timer}">Sin límite de tiempo</button></div>
+      <p class="hint">${esc(modeLabel(c))}. ${c.n === 4 && c.teams ? "Parejas: los asientos 1 y 3 contra 2 y 4." : ""}</p>
+      <div class="row">
+        <button class="primary" id="create" ${db ? "" : "disabled"}>Crear mesa</button>
+        <button id="practice">Practicar contra la compu</button>
+      </div>
+      <div class="cpu">
+        <h2>Nivel de la compu (práctica)</h2>
+        ${Array.from({ length: c.n - 1 }, (_, i) => `<div class="cpurow"><span class="cpuname">${BOT_NAMES[i]}${c.teams ? (i === 1 ? " · tu pareja" : " · rival") : ""}</span>${levelSeg("lobby" + i, botLevels[i])}</div>`).join("")}
+        <p class="hint">Básico: ${LEVEL_HELP[1]} Intermedio: ${LEVEL_HELP[2].toLowerCase()} Avanzado: ${LEVEL_HELP[3].toLowerCase()}</p>
+      </div>
+      ${dbTried && !db ? `<p class="hint">No se pudo conectar con las mesas en línea. Revisa tu internet y recarga; mientras, puedes practicar contra la compu.</p>` : ""}
+    </section>
+    <section class="panel">
+      <h2>Mesas abiertas</h2>
+      <div class="tables" id="tables"></div>
+    </section>
+    <p class="err" id="err">${esc(view.err)}</p>`;
+  $("#nm").addEventListener("input", (e) => { me.name = e.target.value.trim(); ls.set("dom.name", me.name); });
+  $("#gin")?.addEventListener("click", googleIn);
+  $("#gout")?.addEventListener("click", googleOut);
+  app.querySelectorAll("[data-n]").forEach((b) => b.onclick = () => { const n = +b.dataset.n; config = { n, teams: n === 4, per: n === 2 ? 7 : n === 3 ? 9 : 7, timer: config.timer }; render(); });
+  app.querySelectorAll("[data-timer]").forEach((b) => b.onclick = () => { config.timer = b.dataset.timer === "1"; ls.set("dom.timer", config.timer ? "1" : "0"); render(); });
+  app.querySelectorAll("[data-teams]").forEach((b) => b.onclick = () => { config.teams = b.dataset.teams === "1"; render(); });
+  app.querySelectorAll("[data-per]").forEach((b) => b.onclick = () => { config.per = +b.dataset.per; render(); });
+  $("#create").onclick = createTable;
+  $("#practice").onclick = startPractice;
+  app.querySelectorAll("[data-lvl]").forEach((b) => b.onclick = () => { const [id, l] = b.dataset.lvl.split(":"); botLevels[+id.replace("lobby", "")] = +l; saveLevels(); render(); });
+  renderTables();
+}
+
+function renderTables() {
+  const box = $("#tables"); if (!box) return;
+  if (!db) { box.innerHTML = `<p class="hint">${dbTried ? "No se pudo conectar con las mesas en línea. Recarga la página." : "Buscando mesas…"}</p>`; return; }
+  if (!listCache.length) { box.innerHTML = `<p class="hint">Todavía no hay mesas. Crea una y comparte el enlace de esta página con tu familia.</p>`; return; }
+  box.innerHTML = listCache.map((t) => {
+    const filled = t.seats.filter(Boolean).length, mine = t.seats.some((s) => s && s.id === me.id);
+    const st = t.status === "lobby" ? `${filled}/${t.config.n} sentados` : t.status === "gameover" ? "Partida terminada" : `Mano ${t.handNo}`;
+    return `<div class="trow"><div><div class="code">${esc(t.code)}</div><div class="meta">${esc(modeLabel(t.config))} · ${st}</div>
+      <div class="meta">${t.seats.filter(Boolean).map((s) => esc(s.name)).join(", ") || "Sin jugadores"}</div></div>
+      <button data-open="${esc(t.code)}" class="${mine ? "primary" : ""}">${mine ? "Volver" : "Entrar"}</button></div>`;
+  }).join("");
+  box.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => openTable(b.dataset.open));
+}
+
+function needName() { if (!me.name) { view.err = "Escribe tu nombre primero."; render(); $("#nm")?.focus(); return true; } return false; }
+
+async function createTable() {
+  if (needName() || !db) return;
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const code = Array.from({ length: 4 }, () => letters[Math.floor(Math.random() * letters.length)]).join("");
+  const st = E.newTable(code, { ...config }, me.id);
+  st.seats[0] = { id: me.id, name: me.name };
+  try { await db.doc("mesas/" + code).set(st); openTable(code); }
+  catch (e) { view.err = e.code === "permission-denied" ? "No hay permiso para crear mesas." : e.code === "resource-exhausted" ? "Se alcanzó el límite gratis de hoy. Intenta mañana." : "No se pudo crear la mesa."; render(); }
+}
+
+function startPractice() {
+  let st = E.newTable("PRÁCTICA", { ...config }, me.id);
+  st.seats = st.seats.map((_, i) => (i === 0 ? { id: me.id, name: me.name || "Tú" } : { id: "bot" + i, name: BOT_NAMES[i - 1], level: botLevels[i - 1] }));
+  st = E.deal(st);
+  view = { screen: "table", code: st.code, practice: true, sel: null, err: "", track: null };
+  tableState = st; render();
+}
+
+// ---------- Jugadores simulados (solo en práctica) ----------
+let botTimer = null;
+// Quién de la compu actúa ahora. Al salir en parejas, cada compu revisa su juego: los primeros 5 s son para
+// pensar y luego sale según qué tan bueno es (juego 10/10 a los 5 s, 5/10 a los 10 s, 0/10 a los 15 s),
+// siempre antes de que se acabe el tiempo. Si yo salgo antes, ya no sale. Entre dos compus sale la que se decide primero.
+function openDelayMs(st, plan) {
+  let target = (15 - plan.rating) * 1000;
+  if (timerOn(st)) target = Math.min(target, E.limitMs(st.hand) - 1000);
+  return Math.max(0, target - (Date.now() - st.hand.since));
+}
+function botActor(st) {
+  if (!st || st.status !== "playing") return null;
+  const h = st.hand;
+  if (h.turn !== null) return h.turn === 0 ? null : { seat: h.turn };
+  if (h.board.length) return null;
+  const cands = h.openers.filter((s) => s !== 0).map((s) => { const plan = E.openingPlan(h.hands[s]); return { seat: s, tile: plan.tile, delay: openDelayMs(st, plan) }; });
+  cands.sort((x, y) => x.delay - y.delay);
+  return cands[0] || null;
+}
+function scheduleBot() {
+  if (!view.practice || botTimer) return;
+  const act = botActor(tableState); if (!act) return;
+  const key = turnKey(tableState);
+  botTimer = setTimeout(() => {
+    botTimer = null;
+    const st = tableState;
+    if (turnKey(st) !== key) { scheduleBot(); return; } // cambió la mesa mientras esperaba: vuelve a decidir
+    const a = botActor(st); if (!view.practice || !a) return;
+    if (a.delay > 50) { scheduleBot(); return; } // todavía no le toca decidir
+    if (a.tile && E.legalPlays(st, a.seat).some((p) => p.tile === a.tile)) {
+      tableState = E.play(st, a.seat, a.tile, "X");
+    } else {
+      const m = E.botMove(st, a.seat, (st.seats[a.seat] && st.seats[a.seat].level) || 1); if (!m) return;
+      tableState = m.type === "play" ? E.play(st, a.seat, m.tile, m.side) : m.type === "draw" ? E.draw(st, a.seat) : E.pass(st, a.seat);
+    }
+    render();
+  }, act.delay !== undefined ? act.delay + 30 : (tableState.hand.drew ? 450 : 850));
+}
+
+function leave() {
+  clearTimeout(botTimer); botTimer = null; view.track = null;
+  if (unsubTable) { unsubTable(); unsubTable = null; }
+  tableState = null; view = { screen: "lobby", code: null, practice: false, sel: null, err: "" };
+  $("#modal").innerHTML = ""; render();
+}
+
+// ---------- Tu mano: orden y giro que tú escoges (solo en este teléfono) ----------
+let arr = { key: null, order: [], flip: {} };
+try { const sv = JSON.parse(ls.get("dom.arr") || "null"); if (sv && sv.key) arr = sv; } catch {}
+function handArrangement(st, seat) {
+  const key = `${st.code}|${st.created}|${st.handNo}|${seat}`, hand = st.hand.hands[seat];
+  if (arr.key !== key) arr = { key, order: hand.slice().sort((x, y) => E.pts(y) - E.pts(x)), flip: {} };
+  const keep = arr.order.filter((t) => hand.includes(t));
+  const added = hand.filter((t) => !keep.includes(t)); // fichas que comiste: van al final
+  arr.order = [...keep, ...added];
+  return arr.order;
+}
+const saveArr = () => ls.set("dom.arr", JSON.stringify(arr));
+
+// Posición de cada jugador en la mesa, vista desde mí: abajo yo; el turno pasa a la derecha, luego arriba, luego izquierda.
+function seatPos(st, seat, s) {
+  const n = st.config.n, k = (s - (seat < 0 ? 0 : seat) + n) % n;
+  if (k === 0) return "bottom";
+  if (n === 2) return "top";
+  if (n === 3) return k === 1 ? "right" : "left";
+  return ["bottom", "right", "top", "left"][k];
+}
+
+function renderTable(app) {
+  const st = tableState;
+  app.className = "wrap";
+  if (!st) { app.innerHTML = `<div class="top"><button class="ghost" id="back">← Mesas</button></div><p class="hint">${esc(view.err || "Cargando mesa…")}</p>`; $("#back").onclick = leave; $("#modal").innerHTML = ""; return; }
+  const seat = mySeat(st);
+  if (st.status === "lobby") return renderSeats(app, st, seat);
+  app.className = "game";
+  const c = st.config, h = st.hand, n = c.n;
+  const labels = scoreLabels(st);
+  const myScoreIdx = seat >= 0 ? E.teamOf(st, seat) : -1;
+  const turnSeats = h.turn !== null ? [h.turn] : (h.board.length ? [] : h.openers);
+  const ded = st.status === "playing" ? E.deduce(st, seat) : null;
+  const sureCount = (s) => (ded ? Object.values(ded.possible).filter((p) => p.length === 1 && p[0] === s).length : 0);
+  const reveal = view.reveal && canReveal();
+
+  // Marcador corto para la barra
+  const short = c.teams
+    ? `<span class="sc"><span class="teamdot" style="background:${teamColor(myScoreIdx < 0 ? 0 : myScoreIdx)}"></span>Nos <b>${st.scores[myScoreIdx < 0 ? 0 : myScoreIdx]}</b></span><span class="sc"><span class="teamdot" style="background:${teamColor(myScoreIdx < 0 ? 1 : 1 - myScoreIdx)}"></span>Ellos <b>${st.scores[myScoreIdx < 0 ? 1 : 1 - myScoreIdx]}</b></span>`
+    : st.scores.map((v, i) => `<span class="sc ${i === seat ? "mine" : ""}">${esc(i === seat ? "Tú" : E.nameOf(st, i).slice(0, 6))} <b>${v}</b></span>`).join("");
+
+  // Jugadores alrededor de la mesa
+  // Cada jugador es una franja delgada pegada a su orilla de la mesa (arriba, izquierda o derecha)
+  const badge = (s) => {
+    const pos = seatPos(st, seat, s), cnt = h.hands[s].length, lk = (h.lacks && h.lacks[s]) || [], sc = sureCount(s);
+    const tiles = reveal ? `<span class="rl-rev">${h.hands[s].map((x) => tileSVG(...E.P(x), false, 8)).join("")}</span>`
+      : `<span class="rl-backs">${"<i></i>".repeat(Math.min(cnt, 14))}</span>`;
+    const info = [s === h.mano ? "salió" : "", lk.length ? `sin ${lk.join(",")}` : "", sc ? `${sc} segura${sc === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ");
+    return `<button class="rl rl-${pos} ${turnSeats.includes(s) && st.status === "playing" ? "turn" : ""}" data-track="${s}" aria-label="${esc(E.nameOf(st, s))}: ${cnt} fichas${info ? ", " + info : ""}. Ver registro">
+      <span class="rl-nm">${c.teams ? `<span class="teamdot" style="background:${teamColor(s % 2)}"></span>` : ""}${esc(E.nameOf(st, s))}</span>
+      ${tiles}${info ? `<span class="rl-info">${esc(info)}</span>` : ""}</button>`;
+  };
+  const others = []; for (let k = 0; k < n; k++) if (k !== seat) others.push(k);
+  const at = (pos) => others.filter((s) => seatPos(st, seat, s) === pos).map(badge).join("");
+
+  const legal = seat >= 0 ? E.legalPlays(st, seat) : [];
+  const legalTiles = new Set(legal.map((p) => p.tile));
+  const sel = view.sel && legalTiles.has(view.sel) ? view.sel : null;
+  const selSides = sel ? legal.filter((p) => p.tile === sel).map((p) => p.side) : [];
+  const [le, re] = h.board.length ? E.ends(h) : [null, null];
+
+  // La cadena crece al inicio hacia la pareja (o el jugador) que lleva la mano
+  let vertical = false;
+  if (h.board.length && h.mano !== null && h.mano !== undefined) {
+    const team = others.concat(seat >= 0 ? [seat] : []).filter((s) => (c.teams ? s % 2 === h.mano % 2 : s === h.mano));
+    vertical = team.some((s) => ["top", "bottom"].includes(seatPos(st, seat, s)));
+  }
+
+  let statusTxt = "", myTurn = false;
+  if (st.status === "playing") {
+    myTurn = turnSeats.includes(seat);
+    if (myTurn) statusTxt = "Te toca";
+    else if (turnSeats.length) statusTxt = `Turno de ${turnSeats.map((s) => E.nameOf(st, s)).join(" o ")}`;
+    if (h.turn === null && !h.board.length && myTurn) statusTxt = "Sale tu pareja o tú";
+    if (myTurn && !legal.length) statusTxt += E.canDraw(st, seat) ? " · come" : " · pasa";
+    else if (myTurn && sel && selSides.length > 1) statusTxt += " · ¿de qué lado?";
+  }
+
+  const emptyMsg = !h.board.length ? (() => {
+    const who = h.turn !== null ? E.nameOf(st, h.turn) : h.openers.map((s) => E.nameOf(st, s)).join(" o ");
+    return `<div class="empty">Sale ${esc(who)}${h.firstReq ? ` con la ${h.firstReq === "6-6" ? "mula de 6" : "ficha " + h.firstReq}` : ""}</div>`;
+  })() : "";
+  const sideBtns = sel && (selSides.includes("L") || selSides.includes("R") || selSides.includes("X"))
+    && !(selSides.length === 1) ? `<div class="sidebtns">${selSides.map((sd) => `<button class="endbtn" data-side="${sd}">${sd === "X" ? `Tirar ${sel}` : `Pegar al ${sd === "L" ? le : re}`}</button>`).join("")}</div>` : "";
+
+  const order = seat >= 0 ? handArrangement(st, seat) : [];
+  const handHTML = seat >= 0 ? order.map((t) => {
+    const [a, b] = E.P(t), fl = arr.flip[t], cls = legalTiles.has(t) ? (t === sel ? "sel" : "play") : "dim";
+    return `<button class="tilebtn ${cls} ${view.rotMode ? "rot" : ""}" data-tile="${t}" aria-label="Ficha ${t}">${tileSVG(fl ? b : a, fl ? a : b, true, 22)}</button>`;
+  }).join("") : `<p class="hint" style="color:var(--felt-muted)">Estás mirando la mesa.</p>`;
+
+  const menu = view.menu ? `<div class="menuov" id="menuov"><nav class="menu" aria-label="Menú">
+      <div class="menu-head"><b>${esc(view.practice ? "Práctica" : "Mesa " + st.code)}</b><span class="hint">Mano ${st.handNo} · ${esc(modeLabel(c))}</span></div>
+      <div class="scores">${st.scores.map((v, i) => `<div class="score ${i === myScoreIdx ? "mine" : ""}"><div class="who">${c.teams ? `<span class="teamdot" style="background:${teamColor(i)}"></span>` : ""}${esc(labels[i])}</div>
+        <div class="val">${v}<small> / ${E.TARGET}</small></div><div class="bar"><i style="width:${Math.min(100, v)}%"></i></div></div>`).join("")}</div>
+      ${canReveal() ? `<button id="reveal" class="${reveal ? "primary" : ""}">${reveal ? "Ocultar manos" : "Ver manos (evaluar)"}</button>` : ""}
+      <h2>Jugadas</h2><div class="log">${st.log.slice().reverse().map((l) => `<div>${esc(l)}</div>`).join("")}</div>
+      <button id="back">← Salir a mesas</button>
+      <button class="primary" id="menuclose">Volver al juego</button>
+    </nav></div>` : "";
+
+  app.innerHTML = `
+    <header class="gbar">
+      <button class="menubtn" id="menu" aria-label="Menú" aria-expanded="${!!view.menu}"><span></span><span></span><span></span></button>
+      <div class="bar-sc">${short}</div>
+      <div class="bar-info">${E.hasPozo(c) ? `Pozo <b>${h.pozo.length}</b>` : ""}${h.muestra ? ` <span class="muestra">${tileSVG(...E.P(h.muestra), false, 8)}</span>` : ""}</div>
+    </header>
+    <section class="table">
+      <div class="rail rail-top">${at("top")}</div>
+      <div class="rail rail-left">${at("left")}</div>
+      <div class="board" id="board"><div class="chain" id="chain">${emptyMsg}</div></div>
+      <div class="rail rail-right">${at("right")}</div>
+      <div class="band band-bot"><span class="ends" id="ends"></span></div>
+    </section>
+    <section class="me">
+      <div class="status ${myTurn ? "me" : ""}">${esc(statusTxt)}${st.status === "playing" && timerOn(st) ? ` <span id="clock" class="clock"></span>` : ""}</div>
+      ${st.status === "playing" && timerOn(st) ? `<div class="timer" aria-hidden="true"><i id="clockbar"></i></div>` : ""}
+      ${sideBtns}
+      <div class="hand ${view.rotMode ? "rotmode" : ""}" id="hand">${handHTML}</div>
+      ${seat >= 0 && st.status === "playing" ? `<div class="actions">
+        <button id="draw" ${E.canDraw(st, seat) ? "" : "disabled"}>Comer${E.hasPozo(c) ? ` (${h.pozo.length})` : ""}</button>
+        <button id="pass" ${E.canPass(st, seat) ? "" : "disabled"}>Pasar</button>
+        <button id="advice" class="ghost-felt" ${myTurn ? "" : "disabled"}>Consejo</button>
+        <button id="rot" class="ghost-felt ${view.rotMode ? "on" : ""}" aria-pressed="${!!view.rotMode}">${view.rotMode ? "Listo" : "Girar"}</button></div>` : ""}
+      ${view.rotMode ? `<p class="rothint">Toca una ficha para girarla. Arrastra para acomodarla.</p>` : ""}
+      ${view.err ? `<p class="err">${esc(view.err)}</p>` : ""}
+    </section>
+    ${menu}`;
+
+  // Cadena: se dibuja con el tamaño real de la mesa
+  // Cadena: usa toda la mesa (los jugadores están en la banda de arriba)
+  if (h.board.length) {
+    const bd = $("#board"), W = Math.max(120, bd.clientWidth), H = Math.max(120, bd.clientHeight);
+    const origin = Math.min(h.left || 0, h.board.length - 1);
+    $("#chain").innerHTML = chainSVG(h.board, origin, W, H, vertical).svg;
+    $("#ends").innerHTML = `Puntas <b>${le}</b> y <b>${re}</b>`;
+  }
+
+  // Mano: tocar = tirar (o girar en modo Girar); arrastrar = acomodar
+  const handEl = $("#hand");
+  const tapTile = (t) => {
+    if (view.rotMode) { arr.flip[t] = !arr.flip[t]; saveArr(); return render(); }
+    if (!legalTiles.has(t)) return;
+    const sides = legal.filter((p) => p.tile === t).map((p) => p.side);
+    if (sides.length === 1) return mutate((s2) => E.play(s2, seat, t, sides[0]));
+    view.sel = view.sel === t ? null : t; render();
+  };
+  if (handEl && seat >= 0) {
+    let drag = null;
+    const finish = (cancel) => {
+      window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onCancel);
+      const d = drag; drag = null; handDragging = false; renderPending = false;
+      if (!d) return;
+      d.el.classList.remove("dragging");
+      if (cancel) return render();
+      if (d.moved) { arr.order = [...handEl.querySelectorAll("[data-tile]")].map((x) => x.dataset.tile); saveArr(); render(); }
+      else tapTile(d.t);
+    };
+    const onMove = (e) => {
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 10) return;
+      if (!drag.moved) { drag.moved = true; drag.el.classList.add("dragging"); handDragging = true; }
+      e.preventDefault();
+      const sibs = [...handEl.querySelectorAll("[data-tile]")].filter((x) => x !== drag.el);
+      for (const o of sibs) {
+        const r = o.getBoundingClientRect();
+        if (e.clientY >= r.top - 10 && e.clientY <= r.bottom + 10 && e.clientX >= r.left && e.clientX <= r.right) {
+          handEl.insertBefore(drag.el, e.clientX < r.left + r.width / 2 ? o : o.nextSibling); break;
+        }
+      }
+    };
+    const onUp = () => finish(false), onCancel = () => finish(true);
+    handEl.addEventListener("pointerdown", (e) => {
+      const b = e.target.closest("[data-tile]"); if (!b || drag) return;
+      drag = { el: b, t: b.dataset.tile, x: e.clientX, y: e.clientY, moved: false };
+      window.addEventListener("pointermove", onMove, { passive: false });
+      window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onCancel);
+    });
+    handEl.querySelectorAll("[data-tile]").forEach((b) => b.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tapTile(b.dataset.tile); } }));
+  }
+  app.querySelectorAll("[data-side]").forEach((b) => b.onclick = () => { const t = sel; mutate((s2) => E.play(s2, seat, t, b.dataset.side)); });
+  $("#draw")?.addEventListener("click", () => mutate((s2) => E.draw(s2, seat)));
+  $("#pass")?.addEventListener("click", () => mutate((s2) => E.pass(s2, seat)));
+  $("#advice")?.addEventListener("click", () => askAdvice(seat));
+  $("#rot")?.addEventListener("click", () => { view.rotMode = !view.rotMode; render(); });
+  $("#menu").onclick = () => { view.menu = !view.menu; render(); };
+  if (view.menu) {
+    $("#menuclose").onclick = () => { view.menu = false; render(); };
+    $("#menuov").onclick = (e) => { if (e.target.id === "menuov") { view.menu = false; render(); } };
+    $("#back").onclick = leave;
+    $("#reveal")?.addEventListener("click", () => { view.reveal = !view.reveal; render(); });
+  }
+  app.querySelectorAll("[data-track]").forEach((b) => b.onclick = () => { view.advice = null; view.trkSel = null; view.track = +b.dataset.track; render(); });
+  renderResult(st, seat);
+  scheduleBot();
+  tick();
+}
+
+// ---------- Reloj de turno ----------
+// Cada teléfono mide el tiempo desde que VIO el turno nuevo (así no importa si los relojes no coinciden)
+let clock = { key: null, start: 0, fired: false };
+function turnKey(st) {
+  if (!st || st.status !== "playing") return null;
+  const h = st.hand; return `${st.code}|${st.created}|${st.handNo}|${h.since}|${h.turn}|${h.board.length}`;
+}
+function tick() {
+  const st = tableState; if (view.screen !== "table") return;
+  const key = turnKey(st);
+  if (!key) { clock = { key: null, start: 0, fired: false }; return; }
+  if (key !== clock.key) clock = { key, start: Date.now(), fired: false };
+  if (!timerOn(st)) return;
+  const h = st.hand, limit = E.limitMs(h), left = limit - (Date.now() - clock.start);
+  const el = $("#clock"), bar = $("#clockbar");
+  const secs = Math.max(0, Math.ceil(left / 1000));
+  if (el) { el.textContent = `· ${secs} s`; el.classList.toggle("low", secs <= 5); }
+  if (bar) { bar.style.width = Math.max(0, Math.min(100, (left / limit) * 100)) + "%"; bar.classList.toggle("low", secs <= 5); }
+  if (clock.fired) return;
+  // Quien tiene el turno lo resuelve al llegar a 0; los demás esperan 3 s más por si su teléfono no responde
+  const seat = mySeat(st);
+  const mine = h.turn !== null ? h.turn === seat : h.openers.includes(seat);
+  const grace = view.practice || mine ? 0 : 3000;
+  if (left <= -grace && (view.practice || seat >= 0)) {
+    clock.fired = true;
+    const expect = key;
+    mutate((s2) => (turnKey(s2) === expect ? E.autoMove(s2) : SKIP));
+  }
+}
+setInterval(tick, 250);
+
+// ---------- Consejo: qué tirarían los tres niveles ----------
+function askAdvice(seat) {
+  const st = tableState; if (!st) return;
+  const key = turnKey(st);
+  view.track = null; view.advice = { key, data: null }; render();
+  setTimeout(() => {
+    if (!view.advice || view.advice.key !== key || turnKey(tableState) !== key) return;
+    try { view.advice.data = E.advise(tableState, seat); } catch (e) { view.advice.data = { error: true }; }
+    render();
+  }, 40);
+}
+function renderAdvice(st, seat) {
+  const m = $("#modal"), adv = view.advice;
+  if (!adv || turnKey(st) !== adv.key) { view.advice = null; m.innerHTML = ""; return renderTracker(st, seat); }
+  const d = adv.data;
+  let body;
+  if (!d) body = `<p class="hint">Pensando… el avanzado está probando tus tiros en varios repartos posibles.</p>`;
+  else if (d.error) body = `<p class="err">No se pudo calcular el consejo. Intenta otra vez.</p>`;
+  else if (d.none) body = `<p>No tienes ninguna ficha que pegue. ${d.action === "draw" ? "Los tres niveles te dicen lo mismo: <b>come</b> hasta que te salga una que pegue." : "Los tres niveles te dicen lo mismo: <b>pasa</b>."}</p>`;
+  else {
+    const same = d.levels.every((x) => x.tile === d.levels[0].tile && x.side === d.levels[0].side);
+    body = (d.only ? `<p class="hint">Solo tienes un tiro posible.</p>` : same ? `<p class="adv-agree">Los tres niveles coinciden.</p>` : "") +
+      d.levels.map((x, i) => {
+        const [a, b] = E.P(x.tile);
+        return `<section class="adv-card">
+          <div class="adv-head"><span class="lvtag adv-lv">${E.LEVELS[i + 1]}</span>
+            <span class="adv-tile">${tileSVG(a, b, false, 16)}</span>
+            <span class="adv-what"><b>${x.tile}</b> ${esc(x.sideText)}</span></div>
+          <ul>${x.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
+          <button class="primary adv-play" data-advplay="${x.tile}|${x.side}">Tirar ${x.tile}</button>
+        </section>`;
+      }).join("");
+  }
+  m.innerHTML = `<div class="overlay" id="advov"><div class="modal" role="dialog" aria-modal="true" aria-label="Consejo">
+    <h3>Consejo</h3>
+    <p class="hint">Cada nivel solo usa lo que tú puedes saber: tus fichas, la mesa y tu registro.${timerOn(st) ? " El reloj sigue corriendo." : ""}</p>
+    ${body}
+    <div class="row"><button id="advclose">Cerrar</button></div></div></div>`;
+  const close = () => { view.advice = null; m.innerHTML = ""; };
+  $("#advclose").onclick = close;
+  $("#advov").onclick = (e) => { if (e.target.id === "advov") close(); };
+  m.querySelectorAll("[data-advplay]").forEach((b) => b.onclick = () => {
+    const [t, side] = b.dataset.advplay.split("|"); close();
+    mutate((s2) => E.play(s2, seat, t, side));
+  });
+}
+
+// Notas manuales (azul): solo viven en este teléfono
+let notes = {};
+try { notes = JSON.parse(ls.get("dom.notes") || "{}") || {}; } catch { notes = {}; }
+const noteKey = (st, target, t) => `${st.code}|${st.created}|${st.handNo}|${target}|${t}`;
+function cycleNote(st, target, t) {
+  const k = noteKey(st, target, t), cur = notes[k];
+  if (!cur) notes[k] = "si"; else if (cur === "si") notes[k] = "no"; else delete notes[k];
+  // guarda solo las notas de las manos recientes
+  const keys = Object.keys(notes); if (keys.length > 400) keys.slice(0, keys.length - 400).forEach((x) => delete notes[x]);
+  ls.set("dom.notes", JSON.stringify(notes));
+}
+
+// Explicación del porcentaje de una ficha (al tocarla en el registro)
+function tileDetail(st, seat, t, tr, spec) {
+  const tile = view.trkSel; if (!tile) return "";
+  const cellX = tr.rows.flat().find((x) => x.t === tile); if (!cellX || cellX.state === "gone" || cellX.state === "played") return "";
+  const name = E.nameOf(st, t), [a, b] = E.P(tile), note = notes[noteKey(st, t, tile)];
+  let body;
+  if (cellX.state === "sure") body = `<p><b>Seguro la tiene.</b> Ya no puede estar con nadie más: o los demás pasaron con sus números, o contando las fichas que les quedan no les cabe.</p>`;
+  else if (cellX.state === "no") {
+    const lk = (st.hand.lacks && st.hand.lacks[t]) || [], miss = [a, b].filter((x) => lk.includes(x));
+    body = `<p><b>Seguro no la tiene.</b> ${miss.length ? `${esc(name)} pasó o comió cuando había ${miss.join(" y ")} en la punta.` : "Contando las fichas que tiene cada quien y lo que se sabe que les falta, a él no le cabe."}</p>`;
+  } else {
+    const ex = E.explainTile(st, seat, spec, tile, t), pf = Math.round(100 * ex.pFull), pb = Math.round(100 * ex.pBase);
+    body = `<p class="det-num"><b>${pf}%</b> de que ${esc(name)} la tenga.</p>
+      <p><b>Con solo lo seguro serían ${pb}%.</b> La ${tile} puede estar con ${esc(name)}${ex.holders.length ? ", " + esc(ex.holders.join(", ")) : ""}; sin leer los tiros, se reparte según cuántas fichas tiene cada quien.</p>
+      ${ex.facts.length ? `<ul>${ex.facts.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}
+      ${ex.events.length ? `<p><b>Los tiros que la movieron de ${pb}% a ${pf}%:</b></p><ul class="det-ev">${ex.events.map((e) => `<li><span class="det-d ${e.delta > 0 ? "up" : "down"}">${e.delta > 0 ? "+" : "−"}${Math.round(Math.abs(100 * e.delta))}</span> <b>${esc(e.what)}.</b> ${esc(e.why)}</li>`).join("")}</ul>`
+        : `<p>${ex.analyzed ? "Ningún tiro la movió de forma notable" : "Todavía no hay tiros de otros que analizar"}: el porcentaje sale casi solo de lo seguro.</p>`}
+      <p class="hint">Cada número es cuánto cambiaría el porcentaje si no se tomara en cuenta solo ese tiro. Los tiros se refuerzan entre sí, por eso no siempre suman la diferencia completa. Se calcula imaginando ${ex.samples} repartos posibles y viendo qué tan bien explica cada uno lo que tiró cada quien.</p>`;
+  }
+  return `<section class="det" aria-live="polite">
+    <div class="adv-head"><span class="adv-tile">${tileSVG(a, b, false, 16)}</span><b>${tile}</b> en el registro de ${esc(name)}</div>
+    ${body}
+    <div class="row det-notes"><span class="hint">Tu nota:</span>
+      <button class="${note === "si" ? "primary" : ""}" data-setnote="${tile}|si">Creo que la tiene</button>
+      <button class="${note === "no" ? "primary" : ""}" data-setnote="${tile}|no">Creo que no</button>
+      ${note ? `<button class="ghost" data-setnote="${tile}|">Borrar nota</button>` : ""}</div>
+  </section>`;
+}
+
+function renderTracker(st, seat) {
+  const m = $("#modal"), t = view.track;
+  if (t === null || t === undefined || !st.hand || t === seat) { m.innerHTML = ""; return; }
+  const tr = E.tracker(st, seat, t), name = E.nameOf(st, t), h = st.hand;
+  const pending = h.pend && h.pend.seat === t;
+  const exact = tr.sure.length === tr.count && tr.count > 0;
+  const S = 15;
+  const spec = specFor(st, seat);
+  const pOf = (tile) => Math.round(100 * ((spec.prob[tile] && spec.prob[tile][t]) || 0));
+  const reveal = view.reveal && canReveal();
+  const real = reveal ? new Set(h.hands[t]) : null;
+  const cell = (inner, pct) => `<span class="trk-cell">${inner}<span class="trk-pct">${pct}</span></span>`;
+  const grid = tr.rows.map((row) => `<div class="trk-row">${row.map((x) => {
+    const [a, b] = E.P(x.t);
+    if (x.state === "gone") return cell(`<span class="trk-slot" title="${x.t}: ya salió o es tuya"></span>`, "");
+    if (x.state === "played") return cell(`<span class="trk-t played" title="${x.t}: la tiró ${esc(name)}">${tileSVG(a, b, false, S)}</span>`, "");
+    const note = notes[noteKey(st, t, x.t)];
+    const p = x.state === "maybe" ? pOf(x.t) : null;
+    const lbl = x.state === "sure" ? "seguro la tiene" : x.state === "no" ? "no la tiene" : `puede tenerla, probabilidad estimada ${p}%`;
+    return cell(`<button class="trk-t ${x.state} ${note ? "note-" + note : ""} ${real && real.has(x.t) ? "real" : ""} ${view.trkSel === x.t ? "sel" : ""}" data-note="${x.t}" aria-label="${x.t}: ${lbl}${note ? (note === "si" ? ", tu nota: creo que la tiene" : ", tu nota: creo que no") : ""}">${tileSVG(a, b, false, S)}</button>`,
+      p === null ? "" : `${p}%`);
+  }).join("")}</div>`).join("");
+  let calib = "";
+  if (reveal) {
+    const hidden = h.hands[t].filter((x) => spec.prob[x] && !tr.sure.includes(x));
+    if (hidden.length) {
+      const avg = Math.round(hidden.reduce((q, x) => q + pOf(x), 0) / hidden.length);
+      const maybeN = tr.rows.flat().filter((x) => x.state === "maybe").length;
+      const naive = maybeN ? Math.round(100 * hidden.length / maybeN) : 0;
+      calib = `<p class="reveal-note">Modo evaluación: las fichas con punto verde son las que ${esc(name)} tiene de verdad. A esas, el cálculo les daba en promedio <b>${avg}%</b>; repartiendo parejo habría sido como ${naive}%.</p>`;
+    } else calib = `<p class="reveal-note">Modo evaluación: todas las fichas de ${esc(name)} ya están marcadas como seguras.</p>`;
+  }
+  m.innerHTML = `<div class="overlay" id="trkov"><div class="modal" role="dialog" aria-modal="true" aria-label="Registro de ${esc(name)}">
+    <h3>Registro de ${esc(name)}</h3>
+    ${view.practice && st.seats[t] && st.seats[t].level ? `<div class="cpurow"><span class="cpuname">Nivel</span>${levelSeg("seat" + t, st.seats[t].level)}</div>` : ""}
+    <p class="hint">Tiene <b>${tr.count}</b> ficha${tr.count === 1 ? "" : "s"}. ${exact ? "" : `Puede tener cualquiera de las que se ven completas.`}
+      ${E.hasPozo(st.config) && h.pozo.length ? ` Hay ${h.pozo.length} en el pozo.` : ""}</p>
+    ${tr.played.length ? `<p class="trk-played">Tiró: ${tr.played.map((x) => `<b>${x}</b>`).join(" ")}</p>` : ""}
+    ${tr.sure.length ? `<p class="trk-sure">Seguro tiene: ${tr.sure.map((x) => `<b>${x}</b>`).join(" ")}</p>` : ""}
+    ${tr.lacks.length ? `<p class="trk-no">No tiene: ${tr.lacks.map((n) => `<b>${n}</b>`).join(" ")}</p>` : ""}
+    ${pending ? `<p class="hint">Acaba de comer. Lo que no tiene se confirma en su siguiente jugada.</p>` : ""}
+    ${exact ? `<p class="trk-exact">Ya sabes exactamente qué fichas tiene.</p>` : ""}
+    ${calib}
+    <div class="trk">${grid}</div>
+    ${tileDetail(st, seat, t, tr, spec)}
+    <p class="hint">El porcentaje es especulativo: sale de leer los tiros de cada quien (${spec.events} ${spec.events === 1 ? "tiro analizado" : "tiros analizados"}), no solo de lo seguro. Lo rojo y lo tachado sí son seguros.</p>
+    <p class="hint">Toca una ficha para ver por qué tiene ese porcentaje y para anotarla en azul.</p>
+    <div class="trk-legend">
+      <span><span class="trk-t maybe">${tileSVG(6, 1, false, 9)}</span> puede tenerla</span>
+      <span><span class="trk-t sure">${tileSVG(6, 1, false, 9)}</span> seguro la tiene</span>
+      <span><span class="trk-t no">${tileSVG(6, 1, false, 9)}</span> no la tiene</span>
+      <span><span class="trk-t played">${tileSVG(6, 1, false, 9)}</span> la tiró ${esc(name)}</span>
+      <span><span class="trk-slot sm"></span> la tiró otro o es tuya</span>
+      <span><span class="trk-pct lg">62%</span> probabilidad especulativa</span>
+      <span><span class="trk-t maybe note-si">${tileSVG(6, 1, false, 9)}</span> tu nota: creo que sí</span>
+      <span><span class="trk-t maybe note-no">${tileSVG(6, 1, false, 9)}</span> tu nota: creo que no</span></div>
+    <div class="row"><button class="primary" id="trkclose">Cerrar</button></div>
+  </div></div>`;
+  const close = () => { view.track = null; m.innerHTML = ""; };
+  $("#trkclose").onclick = close;
+  $("#trkov").onclick = (e) => { if (e.target.id === "trkov") close(); };
+  m.querySelectorAll("[data-lvl]").forEach((b) => b.onclick = () => {
+    const [id, l] = b.dataset.lvl.split(":"), sIdx = +id.replace("seat", "");
+    tableState.seats[sIdx] = { ...tableState.seats[sIdx], level: +l };
+    if (sIdx >= 1 && sIdx <= 3) { botLevels[sIdx - 1] = +l; saveLevels(); }
+    render();
+  });
+  m.querySelectorAll("[data-setnote]").forEach((b) => b.onclick = () => {
+    const [tile, val] = b.dataset.setnote.split("|"), k = noteKey(st, t, tile);
+    if (val) notes[k] = val; else delete notes[k];
+    ls.set("dom.notes", JSON.stringify(notes));
+    const sc = m.querySelector(".modal").scrollTop; renderTracker(tableState, seat); const md = m.querySelector(".modal"); if (md) md.scrollTop = sc;
+  });
+  m.querySelectorAll("[data-note]").forEach((b) => b.onclick = () => {
+    view.trkSel = view.trkSel === b.dataset.note ? null : b.dataset.note;
+    const sc = m.querySelector(".modal").scrollTop; renderTracker(tableState, seat); const md = m.querySelector(".modal"); if (md) md.scrollTop = sc;
+  });
+}
+
+function renderSeats(app, st, seat) {
+  const c = st.config, full = st.seats.every(Boolean), isHost = st.host === me.id;
+  app.innerHTML = `
+    <div class="top"><button class="ghost" id="back">← Mesas</button><span class="code">Mesa ${esc(st.code)}</span></div>
+    <section class="panel">
+      <h2>${esc(modeLabel(c))}</h2>
+      <p class="hint">Comparte el enlace de esta página. Cada quien entra a la mesa ${esc(st.code)} y escoge asiento.</p>
+      <div class="seats">${st.seats.map((s, i) => `<div class="seat ${s ? "taken" : ""}">
+        <span class="lbl">${c.teams ? `<span class="teamdot" style="background:${teamColor(i % 2)}"></span>Pareja ${i % 2 === 0 ? "A" : "B"} · ` : ""}Asiento ${i + 1}</span>
+        <strong>${s ? esc(s.name) + (s.id === me.id ? " (tú)" : "") : "Libre"}</strong>
+        ${!s ? `<button data-sit="${i}">Sentarme aquí</button>` : s.id === me.id ? `<button class="ghost" data-stand="${i}">Levantarme</button>` : ""}
+      </div>`).join("")}</div>
+      ${!me.name ? `<label for="nm2">Tu nombre</label><input type="text" id="nm2" maxlength="16" placeholder="Ej. Rodrigo">` : ""}
+      <div class="row">
+        <button class="primary" id="start" ${full && seat >= 0 ? "" : "disabled"}>Repartir</button>
+        ${isHost ? `<button class="ghost" id="del">Borrar mesa</button>` : ""}
+      </div>
+      <p class="hint">${full ? "Todos sentados. Cualquier jugador puede repartir." : "Faltan jugadores."}</p>
+    </section>
+    <p class="err">${esc(view.err)}</p>`;
+  $("#back").onclick = leave;
+  $("#nm2")?.addEventListener("input", (e) => { me.name = e.target.value.trim(); ls.set("dom.name", me.name); });
+  app.querySelectorAll("[data-sit]").forEach((b) => b.onclick = () => {
+    if (!me.name) { view.err = "Escribe tu nombre primero."; return render(); }
+    const i = +b.dataset.sit;
+    mutate((s) => { if (s.status !== "lobby") throw new Error("La partida ya empezó."); if (s.seats[i]) throw new Error("Ese asiento ya lo tomaron.");
+      s.seats = s.seats.map((x) => (x && x.id === me.id ? null : x)); s.seats[i] = { id: me.id, name: me.name }; s.v++; return s; });
+  });
+  app.querySelectorAll("[data-stand]").forEach((b) => b.onclick = () => mutate((s) => { s.seats = s.seats.map((x) => (x && x.id === me.id ? null : x)); s.v++; return s; }));
+  $("#start").onclick = () => mutate((s) => { if (s.status !== "lobby" || !s.seats.every(Boolean)) throw new Error("Faltan jugadores."); return E.deal(s); });
+  $("#del")?.addEventListener("click", () => { if ($("#del").dataset.armed) { mutate(() => null).then(leave); } else { $("#del").dataset.armed = "1"; $("#del").textContent = "Toca otra vez para borrar"; } });
+  $("#modal").innerHTML = "";
+}
+
+function renderResult(st, seat) {
+  const m = $("#modal");
+  if (!(st.status === "handover" || st.status === "gameover") || !st.result) {
+    if (view.advice) return renderAdvice(st, seat);
+    return renderTracker(st, seat);
+  }
+  view.advice = null;
+  view.track = null;
+  const r = st.result, c = st.config, labels = scoreLabels(st);
+  const title = r.type === "domino" ? `${E.nameOf(st, r.seat)} dominó` : "Juego cerrado";
+  const winTxt = c.teams ? `Gana la mano: ${labels[r.winner]}` : `Gana la mano: ${E.nameOf(st, r.winner)}`;
+  const rows = st.seats.map((_, i) => `<div class="resrow"><div><strong>${c.teams ? `<span class="teamdot" style="background:${teamColor(i % 2)}"></span>` : ""}${esc(E.nameOf(st, i))}</strong>
+      <div class="mini">${r.hands[i].map((t) => tileSVG(...E.P(t), false, 10)).join("") || '<span class="hint">sin fichas</span>'}</div></div>
+      <span>${r.sums[i]} pts</span></div>`).join("");
+  const adds = st.scores.map((s, i) => `<div class="resrow"><span>${esc(labels[i])}</span><span><span class="plus">${r.add[i] ? "+" + r.add[i] : "—"}</span> · ${s}</span></div>`).join("");
+  const over = st.status === "gameover";
+  const champ = over ? (c.teams ? labels[r.champion] : E.nameOf(st, r.champion)) : "";
+  m.innerHTML = `<div class="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <h3>${esc(over ? `¡Ganó ${champ}!` : title)}</h3>
+    <p class="hint">${esc(over ? `${title}. Alguien llegó a ${E.TARGET} puntos en contra.` : winTxt + (r.type === "cerrado" ? " (menos puntos)" : ""))}</p>
+    <div class="res">${rows}</div>
+    <h2>Puntos en contra</h2><div class="res">${adds}</div>
+    <div class="row">${seat >= 0 ? (over ? `<button class="primary" id="again">Revancha</button>` : `<button class="primary" id="next">Siguiente mano</button>`) : ""}
+      <button class="ghost" id="exit">Salir a mesas</button></div>
+  </div></div>`;
+  $("#next")?.addEventListener("click", () => mutate((s) => (s.status === "handover" ? E.deal(s) : s)));
+  $("#again")?.addEventListener("click", () => mutate((s) => (s.status === "gameover" ? E.deal(E.newGame(s)) : s)));
+  $("#exit").onclick = leave;
+}
+
+window.addEventListener("resize", () => { if (view.screen === "table") render(); });
+render();
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initCaps); else initCaps();
+})();
+</script>
+
+</body></html>
