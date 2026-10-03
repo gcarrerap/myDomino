@@ -2,7 +2,7 @@
 
 Juego de dominó doble seis en el navegador, para jugar en familia desde cualquier teléfono o computadora. Puedes armar mesas multijugador en tiempo real o practicar contra la compu en tres niveles de dificultad.
 
-Está hecho con HTML, CSS y JavaScript, sin dependencias de compilación, y las partidas en línea se sincronizan con Firebase. Hoy casi todo el código vive en `index.html` y se está migrando a una estructura modular (ver [Arquitectura](#arquitectura)).
+Está hecho con HTML, CSS y JavaScript en módulos, sin dependencias ni paso de compilación, y las partidas en línea se sincronizan con Firebase (ver [Arquitectura](#arquitectura)).
 
 ## Características
 
@@ -86,17 +86,30 @@ No dejes la base en *modo de prueba*: en ese modo cualquiera puede leer o borrar
 
 ## Stack
 
-- HTML, CSS y JavaScript sin frameworks ni proceso de compilación
+- HTML, CSS y JavaScript (módulos ES nativos), sin frameworks ni proceso de compilación
 - Firebase 10.12 (SDK *compat*): App, Authentication (anónimo y Google) y Cloud Firestore
 - Tipografías: Alfa Slab One y Nunito Sans (Google Fonts)
 
 ## Arquitectura
 
-### Estado actual
+El juego está dividido en módulos ES nativos, **sin paso de compilación**: el navegador los carga tal cual, y se publica igual que antes en GitHub Pages. Las dependencias van en una sola dirección:
+
+```
+ui/  →  app/  →  ai/  →  engine/
+          ↘ services/ (Firebase, localStorage)
+```
+
+- **`engine/`** sabe las reglas: recibe el estado de la mesa y devuelve uno nuevo.
+- **`ai/`** decide y explica jugadas con lo que un jugador puede saber.
+- **`services/`** es lo único que habla con Firebase y `localStorage`.
+- **`app/`** guarda el estado de la app y lo cambia con acciones.
+- **`ui/`** solo dibuja y convierte clics en acciones.
+
+El detalle (reglas de dependencia, decisiones, cómo se hizo la migración y pendientes) está en [DESIGN.md](DESIGN.md).
 
 ```
 myDomino/
-├── index.html          # interfaz: dibujo y eventos (JavaScript)
+├── index.html          # esqueleto de la página: carga los estilos, Firebase y src/main.js
 ├── styles/
 │   ├── reset.css       # reset mínimo de la página
 │   ├── tokens.css      # colores, tipografía y tema claro/oscuro
@@ -104,16 +117,17 @@ myDomino/
 │   ├── lobby.css       # lista de mesas
 │   └── table.css       # mesa, registro, consejo, tu mano, resultado y menú
 ├── src/
+│   ├── main.js         # arranque
 │   ├── config.js       # configuración de Firebase
-│   ├── engine/         # reglas del dominó (módulos ES, funciones puras)
-│   │   ├── tiles.js    # fichas: notación, puntos, juego completo, revolver
-│   │   ├── config.js   # modos de juego válidos, pozo, equipos, meta de 100
-│   │   ├── table.js    # mesa nueva, reparto, turnos, registro de jugadas
-│   │   ├── moves.js    # jugadas válidas, tirar, comer, pasar
-│   │   ├── scoring.js  # fin de mano y puntos en contra
-│   │   ├── timing.js   # tiempo por turno y jugada automática
-│   │   └── index.js    # API del motor
-│   ├── ai/             # jugadores de la compu y consejo (módulos ES, funciones puras)
+│   ├── engine/         # reglas del dominó (funciones puras)
+│   │   ├── tiles.js       # fichas: notación, puntos, juego completo, revolver
+│   │   ├── config.js      # modos de juego válidos, pozo, equipos, meta de 100
+│   │   ├── table.js       # mesa nueva, reparto, turnos, registro de jugadas
+│   │   ├── moves.js       # jugadas válidas, tirar, comer, pasar
+│   │   ├── scoring.js     # fin de mano y puntos en contra
+│   │   ├── timing.js      # tiempo por turno y jugada automática
+│   │   └── index.js       # API del motor
+│   ├── ai/             # jugadores de la compu y consejo (funciones puras)
 │   │   ├── tune.js        # niveles y parámetros
 │   │   ├── heuristics.js  # criterios de jugada compartidos
 │   │   ├── deduce.js      # registro: qué fichas puede tener cada quien
@@ -127,12 +141,20 @@ myDomino/
 │   │   ├── tables-repo.js # mesas en Firestore: guardar, escuchar, cambios con transacción
 │   │   ├── prefs.js       # preferencias del dispositivo en localStorage
 │   │   └── index.js       # API de servicios
-│   └── app/            # estado de la app y lo que lo cambia
-│       ├── store.js       # el estado (pantalla, mesa abierta, modo, tu mano, notas…) y quién lo escucha
-│       ├── actions.js     # todo lo que cambia el estado: mesas, práctica, preferencias, consejo…
-│       ├── practice.js    # la compu en modo práctica
-│       ├── clock.js       # reloj de turno
-│       └── index.js       # API de la app
+│   ├── app/            # estado de la app y lo que lo cambia
+│   │   ├── store.js       # el estado (pantalla, mesa abierta, modo, tu mano, notas…) y quién lo escucha
+│   │   ├── actions.js     # todo lo que cambia el estado: mesas, práctica, preferencias, consejo…
+│   │   ├── practice.js    # la compu en modo práctica
+│   │   ├── clock.js       # reloj de turno
+│   │   └── index.js       # API de la app
+│   └── ui/             # lo que se ve
+│       ├── render.js      # escoge la pantalla
+│       ├── dom.js         # utilidades del DOM
+│       ├── labels.js      # textos compartidos: modo, marcadores, colores, nivel de la compu
+│       ├── clock.js       # pinta el reloj de turno
+│       ├── svg/           # fichas y la cadena en la mesa
+│       ├── screens/       # lobby, escoger asiento, mesa de juego (con tu mano)
+│       └── components/    # registro, consejo y resultado
 ├── tests/
 │   ├── engine.test.js  # pruebas del motor
 │   ├── ai.test.js      # pruebas de la IA
@@ -140,35 +162,9 @@ myDomino/
 │   ├── app.test.js     # pruebas del estado y las acciones
 │   └── fakes/          # Firebase de mentira para las pruebas
 ├── package.json        # solo para correr las pruebas
-├── DESIGN.md           # diseño de la estructura modular
+├── DESIGN.md           # diseño y decisiones de la estructura modular
 └── README.md
 ```
-
-Dentro de `index.html` el JavaScript está organizado en estas partes:
-
-- **Dibujo:** las fichas y la hilera de la mesa en SVG.
-- **Interfaz:** lobby, mesa, registro, consejo y resultado. Lee el estado de `src/app/` y le pide acciones; no tiene variables propias.
-
-### Hacia dónde va
-
-Un solo archivo es fácil de publicar, pero difícil de mantener: no se puede probar el motor por separado, los cambios a reglas, estilos e interfaz se mezclan en cada PR, y el estado de la app vive en variables globales. El plan (issue #3) es dividirlo en módulos ES nativos, **sin agregar un paso de compilación**, con dependencias en una sola dirección:
-
-```
-ui/  →  app/  →  ai/  →  engine/
-               ↘ services/ (Firebase, localStorage)
-```
-
-| Carpeta | Contenido |
-|---|---|
-| `styles/` | CSS separado por tokens, base, lobby y mesa |
-| `src/engine/` | reglas del dominó, funciones puras |
-| `src/ai/` | bots, deducción, especulación y consejo, funciones puras |
-| `src/services/` | Firebase y `localStorage` |
-| `src/app/` | estado de la app, acciones, bots de práctica y reloj |
-| `src/ui/` | pantallas, componentes y dibujo SVG |
-| `tests/` | pruebas del motor y de la IA con `node --test` |
-
-La migración se hace por fases, cada una en su propio PR y sin cambiar el comportamiento del juego. El detalle (estructura completa, reglas de dependencia, decisiones y plan por fases) está en [DESIGN.md](DESIGN.md).
 
 ### Pruebas
 

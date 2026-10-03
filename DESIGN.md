@@ -40,7 +40,9 @@ Todo el juego vive en `index.html`:
 4. **Un solo dueño para el estado de la app.** Las vistas leen del store y piden cambios; no modifican variables globales.
 5. **Cero cambios de comportamiento durante la migración.** Cada fase es un PR que mueve código, no lo reescribe, y el juego funciona igual al terminar cada una.
 
-## 3. Estructura propuesta
+## 3. Estructura
+
+Esta es la estructura final, tal como quedó al terminar la fase 6 (las diferencias con la propuesta original están en el plan de migración, §6).
 
 ```
 myDomino/
@@ -52,8 +54,8 @@ myDomino/
 │   ├── lobby.css
 │   └── table.css              # paño, fichas, mano, marcador, consejo
 ├── src/
-│   ├── main.js                # arranque: carga config, inicia Firebase, monta la app
-│   ├── config.js              # FIREBASE_CONFIG (único archivo a editar para usar otro proyecto)
+│   ├── main.js                # arranque: reloj, suscripción al estado, render inicial y conexión con Firebase
+│   ├── config.js              # FIREBASE_CONFIG (único archivo a editar para usar otro proyecto; script clásico)
 │   │
 │   ├── engine/                # reglas del dominó — puro, probado con Node
 │   │   ├── tiles.js           # T, P, pts, isDbl, fullSet, shuffle, sumHand, tileRank
@@ -89,18 +91,20 @@ myDomino/
 │   │
 │   └── ui/                    # vista: produce HTML/SVG y conecta eventos
 │       ├── dom.js             # $, esc
+│       ├── labels.js          # modeLabel, scoreLabels, teamColor, levelSeg, LEVEL_HELP
 │       ├── render.js          # render() raíz: elige pantalla
+│       ├── clock.js           # tick: pinta el reloj de turno
 │       ├── svg/
-│       │   ├── tile.js        # half, tileSVG, tileG
+│       │   ├── tile.js        # PIPS, half, tileSVG, tileG
 │       │   └── chain.js       # layoutChain, layoutChainAt, chainSVG
 │       ├── screens/
-│       │   ├── lobby.js       # renderLobby, renderTables, authBox, levelSeg
-│       │   └── table.js       # renderTable, renderSeats, renderResult
+│       │   ├── lobby.js       # renderLobby, renderTables, authBox, needName
+│       │   ├── seats.js       # renderSeats (escoger asiento antes de repartir)
+│       │   └── table.js       # renderTable (incluye tu mano: tocar, girar y arrastrar), seatPos
 │       └── components/
-│           ├── hand.js        # handArrangement, arrastrar y girar
-│           ├── advice.js      # askAdvice, renderAdvice
-│           ├── tracker.js     # renderTracker, tileDetail
-│           └── notes.js       # cycleNote
+│           ├── result.js      # renderResult
+│           ├── advice.js      # renderAdvice
+│           └── tracker.js     # renderTracker, tileDetail
 └── tests/
     ├── engine.test.js         # reparto, jugadas, tranque, puntuación por modo
     ├── ai.test.js             # los bots solo devuelven jugadas legales y no ven fichas ajenas
@@ -165,8 +169,14 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 | 3 ✅ | Pasar bots, especulación y consejo a `src/ai/` con `tests/ai.test.js`. El primer `<script>` de `index.html` queda solo para armar `window.E`. Se agregó `heuristics.js` para que `heurScore` (que usan la especulación y los bots) no cree un ciclo entre tres archivos. | bajo |
 | 4 ✅ | Pasar Firebase, `localStorage` y `mutate` a `src/services/`. Lo que decide qué ver y qué mensaje mostrar (`view`, `render`, textos de error) se queda en la interfaz; los servicios solo hablan con Firebase y devuelven datos o errores. La interfaz ya importa directo de `src/services/`. | medio: auth y transacciones |
 | 5 ✅ | Introducir `app/store.js` y `app/actions.js`; quitar las variables globales de la UI. Además `app/practice.js` (bots de práctica) y `app/clock.js` (reloj de turno). La interfaz ya no tiene variables globales: lee `state`, se suscribe con `subscribe` y pide acciones. Cuando solo cambia la lista de mesas, se redibuja solo la lista (como antes), para no interrumpir a quien está escribiendo su nombre. Se borró el código muerto que habría que mover al store (`userCap`, `sampleCap`, `isOwnerView`, `sleep`, `renderPending`, `cycleNote`). | medio: es el cambio más grande |
-| 6 | Dividir la UI en `ui/screens` y `ui/components`; que la UI importe del motor y la IA en vez de usar `window.E`, y quitar el `<script>` que lo arma. | bajo |
+| 6 ✅ | Dividir la UI en `ui/screens` y `ui/components`; que la UI importe del motor y la IA en vez de usar `window.E`, y quitar el `<script>` que lo arma. `index.html` queda en 20 líneas y carga `src/main.js`. Diferencias con la propuesta: `labels.js` reúne textos compartidos por lobby, mesa y registro; `screens/seats.js` y `components/result.js` son archivos propios; el manejo de tu mano (tocar, girar, arrastrar) se queda dentro de `screens/table.js` porque depende de las jugadas válidas que calcula esa pantalla; `askAdvice` y las notas ya vivían en `app/actions.js` desde la fase 5. Para no crear ciclos, las pantallas piden redibujar con `notify()` de `app/` en lugar de importar `render`. | bajo |
 | 7 (opcional) | IA en Web Worker; SDK modular de Firebase. | medio |
+
+### Pendientes conocidos (fuera de las fases)
+
+- **Inyectar el reloj en el motor:** `newTable`, `deal`, `play` y `pass` todavía llaman a `Date.now()` (§4).
+- **`NOISE` como parámetro:** `ai/tune.js` exporta un objeto mutable que `rolloutFull` apaga mientras simula (§4).
+- **Prueba con Firebase real:** dominio autorizado, reglas de Firestore y login con Google (ver abajo).
 
 ### Cómo se prueba lo que toca Firebase
 
