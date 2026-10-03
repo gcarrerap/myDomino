@@ -1,0 +1,6 @@
+/* Lobby: lista de mesas abiertas */
+.tables{display:flex;flex-direction:column;gap:8px}
+.trow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.trow .code{font-family:var(--display);font-size:18px;letter-spacing:1px}
+.trow .meta{color:var(--muted);font-size:13px}
+.err{color:var(--warn);font-weight:700;font-size:13px;min-height:1em;margin:0}
