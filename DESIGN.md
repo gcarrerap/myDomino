@@ -81,10 +81,11 @@ myDomino/
 │   │   └── index.js           # reexporta la API de servicios
 │   │
 │   ├── app/                   # estado y casos de uso de la app
-│   │   ├── store.js           # view, tableState, config, me, listCache + subscribe/notify
-│   │   ├── actions.js         # createTable, startPractice, leave, jugar/comer/pasar vía mutate
+│   │   ├── store.js           # state (view, tableState, config, me, db…), subscribe/notify y derivados (mySeat, turnKey, specFor…)
+│   │   ├── actions.js         # start, openTable, mutate, createTable, startPractice, leave, setView, preferencias, mano, notas, askAdvice
 │   │   ├── practice.js        # botActor, scheduleBot, openDelayMs (bots en modo práctica)
-│   │   └── clock.js           # reloj de turno (tick, turnKey)
+│   │   ├── clock.js           # tickClock: reloj de turno (la interfaz solo lo pinta)
+│   │   └── index.js           # reexporta la API de la app
 │   │
 │   └── ui/                    # vista: produce HTML/SVG y conecta eventos
 │       ├── dom.js             # $, esc
@@ -104,6 +105,7 @@ myDomino/
     ├── engine.test.js         # reparto, jugadas, tranque, puntuación por modo
     ├── ai.test.js             # los bots solo devuelven jugadas legales y no ven fichas ajenas
     ├── services.test.js       # mesas en Firestore, transacciones, sesión, localStorage
+    ├── app.test.js            # práctica, compu, reloj, preferencias, mano, notas, mesas en línea, consejo
     └── fakes/firebase.js      # Firebase de mentira en memoria para las pruebas
 ```
 
@@ -136,7 +138,7 @@ Reglas concretas:
 
 - `engine/` y `ai/` no usan `document`, `window`, `localStorage`, `firebase` ni `Date.now()` directo. El tiempo entra como parámetro (`now`) con valor por defecto, igual que ya se hace con `rnd`. *Pendiente:* en la fase 2 el motor se movió sin cambios y todavía llama a `Date.now()` en `newTable`, `deal`, `play` y `pass`; inyectarlo es un cambio de firma que va en su propio PR.
 - **Única dependencia circular, a propósito:** `bots.js` ↔ `search.js`. El nivel Avanzado (`botMove`) simula manos completas (`monteCarloMove` → `rolloutFull`), y esas simulaciones juegan con el nivel Intermedio, que es el mismo `botMove`. Es seguro en módulos ES porque son declaraciones de función y ninguna se llama al cargar.
-- Ningún módulo exporta variables mutables. El estado compartido vive en `app/store.js` y se cambia solo con sus funciones. *Excepción pendiente:* `ai/tune.js` exporta `NOISE`, un objeto que `rolloutFull` apaga mientras simula para que el nivel Intermedio juegue sin azar, y lo vuelve a prender al terminar. Se movió tal cual; lo limpio es pasar el ruido como parámetro de `botMove`, en un PR aparte.
+- Ningún módulo exporta variables mutables. El estado compartido vive en `app/store.js`: se exporta el objeto `state` para leerlo, pero **solo los módulos de `app/` lo escriben**; la interfaz lo cambia siempre por medio de una acción. *Excepción pendiente:* `ai/tune.js` exporta `NOISE`, un objeto que `rolloutFull` apaga mientras simula para que el nivel Intermedio juegue sin azar, y lo vuelve a prender al terminar. Se movió tal cual; lo limpio es pasar el ruido como parámetro de `botMove`, en un PR aparte.
 - La UI nunca llama a Firestore: pide `actions.play(tile, side)` y `actions` decide si es práctica (local) o en línea (transacción).
 
 ## 5. Decisiones
@@ -162,8 +164,8 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 | 2 ✅ | Pasar el motor a `src/engine/` como módulos ES y agregar `tests/engine.test.js`. Los dos `<script>` de `index.html` pasan a ser módulos: el primero importa el motor y arma `window.E` con la IA que todavía vive ahí; el segundo es la UI. Desde aquí el juego ya no abre con doble clic. | bajo: el motor ya es puro |
 | 3 ✅ | Pasar bots, especulación y consejo a `src/ai/` con `tests/ai.test.js`. El primer `<script>` de `index.html` queda solo para armar `window.E`. Se agregó `heuristics.js` para que `heurScore` (que usan la especulación y los bots) no cree un ciclo entre tres archivos. | bajo |
 | 4 ✅ | Pasar Firebase, `localStorage` y `mutate` a `src/services/`. Lo que decide qué ver y qué mensaje mostrar (`view`, `render`, textos de error) se queda en la interfaz; los servicios solo hablan con Firebase y devuelven datos o errores. La interfaz ya importa directo de `src/services/`. | medio: auth y transacciones |
-| 5 | Introducir `app/store.js` y `app/actions.js`; quitar las variables globales de la UI. | medio: es el cambio más grande |
-| 6 | Dividir la UI en `ui/screens` y `ui/components`; borrar código muerto (ESLint marca `userCap`, `sampleCap`, `isOwnerView`, `sleep`, `renderPending` y `cycleNote`). | bajo |
+| 5 ✅ | Introducir `app/store.js` y `app/actions.js`; quitar las variables globales de la UI. Además `app/practice.js` (bots de práctica) y `app/clock.js` (reloj de turno). La interfaz ya no tiene variables globales: lee `state`, se suscribe con `subscribe` y pide acciones. Cuando solo cambia la lista de mesas, se redibuja solo la lista (como antes), para no interrumpir a quien está escribiendo su nombre. Se borró el código muerto que habría que mover al store (`userCap`, `sampleCap`, `isOwnerView`, `sleep`, `renderPending`, `cycleNote`). | medio: es el cambio más grande |
+| 6 | Dividir la UI en `ui/screens` y `ui/components`; que la UI importe del motor y la IA en vez de usar `window.E`, y quitar el `<script>` que lo arma. | bajo |
 | 7 (opcional) | IA en Web Worker; SDK modular de Firebase. | medio |
 
 ### Cómo se prueba lo que toca Firebase
@@ -172,6 +174,7 @@ Firebase real no se puede usar en las pruebas automáticas, así que hay dos red
 
 - `tests/services.test.js` corre los servicios contra un Firebase de mentira en memoria (`tests/fakes/firebase.js`): guardar y leer mesas, transacciones, `SKIP`, borrar, errores, entrar como invitado, Google con ventana o redirección, y salir.
 - En cada fase que toca servicios o interfaz, se juega una partida en línea completa en el navegador con dos jugadores (contextos separados) y un Firebase de mentira inyectado en lugar del CDN, en `main` y en la rama, y se comparan las pantallas y los documentos guardados.
+- Desde la fase 5 también se hace un recorrido por toda la interfaz con el reloj del navegador detenido (`page.clock`), comparando el HTML de la pantalla y lo guardado en el dispositivo después de cada paso.
 
 La prueba con el Firebase real (dominio autorizado, reglas de Firestore, login con Google) queda para el final de la migración.
 
