@@ -2,7 +2,7 @@
 
 Juego de dominó doble seis en el navegador, para jugar en familia desde cualquier teléfono o computadora. Puedes armar mesas multijugador en tiempo real o practicar contra la compu en tres niveles de dificultad.
 
-Todo vive en un solo archivo, `index.html`: HTML, CSS y JavaScript sin dependencias de compilación. Las partidas en línea se sincronizan con Firebase.
+Está hecho con HTML, CSS y JavaScript, sin dependencias de compilación, y las partidas en línea se sincronizan con Firebase. Hoy todo vive en un solo archivo, `index.html`, y se está migrando a una estructura modular (ver [Arquitectura](#arquitectura)).
 
 ## Características
 
@@ -91,11 +91,14 @@ No dejes la base en *modo de prueba*: en ese modo cualquiera puede leer o borrar
 - Firebase 10.12 (SDK *compat*): App, Authentication (anónimo y Google) y Cloud Firestore
 - Tipografías: Alfa Slab One y Nunito Sans (Google Fonts)
 
-## Estructura
+## Arquitectura
+
+### Estado actual
 
 ```
 myDomino/
 ├── index.html   # todo el juego: motor de reglas, bots, interfaz y sincronización
+├── DESIGN.md    # diseño de la estructura modular
 └── README.md
 ```
 
@@ -106,3 +109,26 @@ Dentro de `index.html` el código está organizado en estas partes:
 - **Dibujo:** las fichas y la hilera de la mesa en SVG.
 - **Interfaz:** lobby, mesa, consejo y notas.
 - **Firebase:** autenticación y lectura/escritura de mesas en Firestore. Cada mesa se guarda como JSON en un solo documento.
+
+### Hacia dónde va
+
+Un solo archivo es fácil de publicar, pero difícil de mantener: no se puede probar el motor por separado, los cambios a reglas, estilos e interfaz se mezclan en cada PR, y el estado de la app vive en variables globales. El plan (issue #3) es dividirlo en módulos ES nativos, **sin agregar un paso de compilación**, con dependencias en una sola dirección:
+
+```
+ui/  →  app/  →  ai/  →  engine/
+               ↘ services/ (Firebase, localStorage)
+```
+
+| Carpeta | Contenido |
+|---|---|
+| `styles/` | CSS separado por tokens, base, lobby y mesa |
+| `src/engine/` | reglas del dominó, funciones puras |
+| `src/ai/` | bots, deducción, especulación y consejo, funciones puras |
+| `src/services/` | Firebase y `localStorage` |
+| `src/app/` | estado de la app, acciones, bots de práctica y reloj |
+| `src/ui/` | pantallas, componentes y dibujo SVG |
+| `tests/` | pruebas del motor y de la IA con `node --test` |
+
+La migración se hace por fases, cada una en su propio PR y sin cambiar el comportamiento del juego. El detalle (estructura completa, reglas de dependencia, decisiones y plan por fases) está en [DESIGN.md](DESIGN.md).
+
+Cuando la migración avance, el juego necesitará servirse desde un servidor (GitHub Pages o `python3 -m http.server`), porque los navegadores no cargan módulos ES desde `file://`.
