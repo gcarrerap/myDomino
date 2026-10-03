@@ -56,13 +56,13 @@ myDomino/
 │   ├── config.js              # FIREBASE_CONFIG (único archivo a editar para usar otro proyecto)
 │   │
 │   ├── engine/                # reglas del dominó — puro, probado con Node
-│   │   ├── tiles.js           # T, P, pts, isDbl, fullSet, shuffle, sumHand
+│   │   ├── tiles.js           # T, P, pts, isDbl, fullSet, shuffle, sumHand, tileRank
 │   │   ├── config.js          # validConfig, hasPozo, teamOf, nScores, TARGET
-│   │   ├── table.js           # newTable, newGame, deal, nameOf
-│   │   ├── moves.js           # legalPlays, play, draw, pass, canDraw, canPass, ends
+│   │   ├── table.js           # newTable, newGame, deal, nameOf, nextSeat, pushLog
+│   │   ├── moves.js           # legalPlays, play, draw, pass, canDraw, canPass, ends, resolvePending
 │   │   ├── scoring.js         # endHand (puntos en contra, tranque, campeón)
 │   │   ├── timing.js          # limitMs, autoMove
-│   │   └── index.js           # reexporta la API pública del motor
+│   │   └── index.js           # reexporta la API del motor
 │   │
 │   ├── ai/                    # jugadores de la compu y consejo — puro, probado con Node
 │   │   ├── tune.js            # TUNE, LEVELS, NOISE
@@ -129,7 +129,7 @@ Los nombres de función son los que ya existen hoy; la migración los mueve, no 
 
 Reglas concretas:
 
-- `engine/` y `ai/` no usan `document`, `window`, `localStorage`, `firebase` ni `Date.now()` directo. El tiempo entra como parámetro (`now`) con valor por defecto, igual que ya se hace con `rnd`.
+- `engine/` y `ai/` no usan `document`, `window`, `localStorage`, `firebase` ni `Date.now()` directo. El tiempo entra como parámetro (`now`) con valor por defecto, igual que ya se hace con `rnd`. *Pendiente:* en la fase 2 el motor se movió sin cambios y todavía llama a `Date.now()` en `newTable`, `deal`, `play` y `pass`; inyectarlo es un cambio de firma que va en su propio PR.
 - Ningún módulo exporta variables mutables. El estado compartido vive en `app/store.js` y se cambia solo con sus funciones.
 - La UI nunca llama a Firestore: pide `actions.play(tile, side)` y `actions` decide si es práctica (local) o en línea (transacción).
 
@@ -141,7 +141,7 @@ Reglas concretas:
 
 **Store mínimo hecho a mano.** Un objeto con `get()`, `set(patch)` y `subscribe(fn)` alcanza; no hace falta un framework. `render()` se suscribe al store.
 
-**Pruebas con `node:test`.** Node ya trae corredor de pruebas; basta un `package.json` con `"type": "module"` y `"test": "node --test tests/"`. No se agregan dependencias.
+**Pruebas con `node:test`.** Node ya trae corredor de pruebas; basta un `package.json` con `"type": "module"` y `"test": "node --test"` (Node encuentra solo los archivos `*.test.js`). No se agregan dependencias.
 
 **Web Worker para la IA (después).** Con `ai/` aislado y puro, `speculate` y `monteCarloMove` pueden correr en un Worker para que la pantalla no se congele en el nivel Avanzado. Queda fuera de esta migración, pero es la razón de separar `ai/` de `engine/`.
 
@@ -152,8 +152,8 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 | Fase | Cambio | Riesgo |
 |---|---|---|
 | 0 ✅ | `DESIGN.md` y actualización del README | ninguno |
-| 1 ✅ | Sacar CSS a `styles/` y la configuración a `src/config.js`. El JS sigue igual. `config.js` es un script clásico (no módulo) hasta la fase 4, así que el juego todavía abre con doble clic. | bajo |
-| 2 | Pasar el motor a `src/engine/` como módulos ES y agregar `tests/engine.test.js`. La UI importa `E` desde ahí. | bajo: el motor ya es puro |
+| 1 ✅ | Sacar CSS a `styles/` y la configuración a `src/config.js`. El JS sigue igual. | bajo |
+| 2 ✅ | Pasar el motor a `src/engine/` como módulos ES y agregar `tests/engine.test.js`. Los dos `<script>` de `index.html` pasan a ser módulos: el primero importa el motor y arma `window.E` con la IA que todavía vive ahí; el segundo es la UI. Desde aquí el juego ya no abre con doble clic. | bajo: el motor ya es puro |
 | 3 | Pasar bots, especulación y consejo a `src/ai/` con `tests/ai.test.js`. | bajo |
 | 4 | Pasar Firebase, `localStorage` y `mutate` a `src/services/`. | medio: auth y transacciones |
 | 5 | Introducir `app/store.js` y `app/actions.js`; quitar las variables globales de la UI. | medio: es el cambio más grande |
@@ -162,7 +162,7 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 
 ## 7. Consecuencias
 
-- **Ya no funciona con doble clic.** Los navegadores bloquean módulos ES desde `file://`. Para jugar localmente hay que usar un servidor estático (`python3 -m http.server`), lo que el README ya recomienda.
+- **Ya no funciona con doble clic (desde la fase 2).** Los navegadores bloquean módulos ES desde `file://`. Para jugar localmente hay que usar un servidor estático (`python3 -m http.server`), lo que el README ya recomienda.
 - **Más archivos que publicar.** Sin impacto en GitHub Pages; solo hay que subir la carpeta completa en lugar de un archivo.
 - **Las mesas guardadas no cambian.** El formato del documento en Firestore (`json`, `code`, `created`, `updated`) se mantiene, así que mesas abiertas antes y después de la migración son compatibles.
 

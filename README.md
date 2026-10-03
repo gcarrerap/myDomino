@@ -43,7 +43,7 @@ Está hecho con HTML, CSS y JavaScript, sin dependencias de compilación, y las 
 
 ### Opción 2: localmente
 
-Sírvelo con cualquier servidor estático. Abrirlo con doble clic (`file://`) puede impedir que funcione el inicio de sesión de Firebase.
+Sírvelo con cualquier servidor estático. Abrirlo con doble clic (`file://`) no funciona: el juego usa módulos ES y los navegadores no los cargan desde archivos locales.
 
 ```bash
 # desde la carpeta del repo
@@ -96,7 +96,7 @@ No dejes la base en *modo de prueba*: en ese modo cualquiera puede leer o borrar
 
 ```
 myDomino/
-├── index.html          # motor de reglas, bots, interfaz y sincronización (JavaScript)
+├── index.html          # bots, consejo, interfaz y sincronización (JavaScript)
 ├── styles/
 │   ├── reset.css       # reset mínimo de la página
 │   ├── tokens.css      # colores, tipografía y tema claro/oscuro
@@ -104,14 +104,24 @@ myDomino/
 │   ├── lobby.css       # lista de mesas
 │   └── table.css       # mesa, registro, consejo, tu mano, resultado y menú
 ├── src/
-│   └── config.js       # configuración de Firebase
+│   ├── config.js       # configuración de Firebase
+│   └── engine/         # reglas del dominó (módulos ES, funciones puras)
+│       ├── tiles.js    # fichas: notación, puntos, juego completo, revolver
+│       ├── config.js   # modos de juego válidos, pozo, equipos, meta de 100
+│       ├── table.js    # mesa nueva, reparto, turnos, registro de jugadas
+│       ├── moves.js    # jugadas válidas, tirar, comer, pasar
+│       ├── scoring.js  # fin de mano y puntos en contra
+│       ├── timing.js   # tiempo por turno y jugada automática
+│       └── index.js    # API del motor
+├── tests/
+│   └── engine.test.js  # pruebas del motor
+├── package.json        # solo para correr las pruebas
 ├── DESIGN.md           # diseño de la estructura modular
 └── README.md
 ```
 
 Dentro de `index.html` el JavaScript está organizado en estas partes:
 
-- **Motor del juego:** reparto, jugadas válidas, comer, pasar, fin de mano y puntuación.
 - **Bots:** deducción de fichas, simulaciones Monte Carlo y heurísticas por nivel.
 - **Dibujo:** las fichas y la hilera de la mesa en SVG.
 - **Interfaz:** lobby, mesa, consejo y notas.
@@ -138,4 +148,12 @@ ui/  →  app/  →  ai/  →  engine/
 
 La migración se hace por fases, cada una en su propio PR y sin cambiar el comportamiento del juego. El detalle (estructura completa, reglas de dependencia, decisiones y plan por fases) está en [DESIGN.md](DESIGN.md).
 
-Cuando la migración avance, el juego necesitará servirse desde un servidor (GitHub Pages o `python3 -m http.server`), porque los navegadores no cargan módulos ES desde `file://`.
+### Pruebas
+
+El motor tiene pruebas que corren con Node (18 o más nuevo), sin instalar nada:
+
+```bash
+npm test
+```
+
+Cubren el reparto en cada modo, jugadas válidas, comer y pasar, la puntuación (dominó, tranque, empates, fin de partida) y partidas completas con jugadas automáticas.

@@ -16,215 +16,13 @@
 <div class="wrap" id="app"></div>
 <div id="modal"></div>
 
-<script>
-// ===== Motor de dominó (funciones puras sobre el estado de la mesa) =====
+<script type="module">
+// Motor de reglas: src/engine/ (módulos ES). Aquí quedan por ahora la deducción, los bots y el consejo,
+// que pasan a src/ai/ en la fase 3 de #3. La interfaz (módulo de abajo) usa window.E.
+// Los nombres del motor se importan con sus nombres originales para que el código de abajo no cambie.
+import { T, P, pts, isDbl, sumHand, fullSet, TARGET, validConfig, hasPozo, teamOf, nScores, newTable, deal, nameOf, newGame, ends, legalPlays, canDraw, canPass, play, draw, pass, limitMs, autoMove } from "./src/engine/index.js";
+
 const E = (() => {
-  const T = (a, b) => (a >= b ? a + "-" + b : b + "-" + a); // canónica: mayor primero
-  const P = (t) => t.split("-").map(Number);
-  const pts = (t) => { const [a, b] = P(t); return a + b; };
-  const isDbl = (t) => { const [a, b] = P(t); return a === b; };
-  const sumHand = (h) => h.reduce((s, t) => s + pts(t), 0);
-  const TARGET = 100;
-
-  function fullSet() { const s = []; for (let a = 0; a <= 6; a++) for (let b = 0; b <= a; b++) s.push(T(a, b)); return s; }
-  function shuffle(arr, rnd = Math.random) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-
-  // config: {n:2|3|4, teams:bool, per:7|9|14}
-  function validConfig(c) {
-    if (c.n === 2) return c.per === 7 || c.per === 14;
-    if (c.n === 3) return c.per === 7 || c.per === 9;
-    if (c.n === 4) return c.per === 7;
-    return false;
-  }
-  const hasPozo = (c) => c.n * c.per < 28 && !(c.n === 3 && c.per === 9);
-  const teamOf = (st, seat) => (st.config.teams ? seat % 2 : seat);
-  const nScores = (c) => (c.teams ? 2 : c.n);
-
-  function newTable(code, config, host) {
-    return {
-      code, config, host, created: Date.now(),
-      seats: Array(config.n).fill(null),
-      status: "lobby", scores: Array(nScores(config)).fill(0),
-      handNo: 0, lastWinner: null, hand: null, result: null, log: [], v: 0,
-    };
-  }
-
-  // Compara fichas: mula más alta primero, luego suma, luego extremo mayor
-  function tileRank(t) { const [a, b] = P(t); return (a === b ? 100 : 0) + (a + b) * 10 + a; }
-
-  function deal(st, rnd = Math.random) {
-    const c = st.config, deck = shuffle(fullSet(), rnd);
-    const hands = []; let k = 0;
-    for (let i = 0; i < c.n; i++) { hands.push(deck.slice(k, k + c.per)); k += c.per; }
-    const rest = deck.slice(k);
-    let muestra = null, pozo = [];
-    if (c.n === 3 && c.per === 9) muestra = rest[0];
-    else pozo = rest;
-    const h = { hands, pozo, muestra, board: [], turn: null, mano: null, passes: 0, openers: null, firstReq: null, drew: 0, lacks: hands.map(() => []), played: hands.map(() => []), history: [], since: Date.now() };
-    if (st.handNo === 0 || st.lastWinner === null) {
-      // Primera mano: sale la mula más alta (o la ficha más alta si no hay mulas)
-      let best = null, seat = 0;
-      hands.forEach((hh, i) => hh.forEach((t) => { if (best === null || tileRank(t) > tileRank(best)) { best = t; seat = i; } }));
-      h.turn = seat; h.openers = [seat]; h.firstReq = best;
-    } else if (c.teams) {
-      const tm = st.lastWinner; h.openers = [tm, tm + 2]; h.turn = null; // cualquiera del equipo ganador
-    } else {
-      h.turn = st.lastWinner; h.openers = [st.lastWinner];
-    }
-    return { ...st, status: "playing", handNo: st.handNo + 1, hand: h, result: null,
-      log: pushLog(st.log, `Mano ${st.handNo + 1}: repartidas ${c.per} fichas por jugador` + (muestra ? `, muestra ${muestra}` : "")), v: st.v + 1 };
-  }
-
-  function pushLog(log, msg) { return [...(log || []), msg].slice(-12); }
-  const ends = (h) => (h.board.length ? [h.board[0][0], h.board[h.board.length - 1][1]] : null);
-
-  // Jugadas legales para un asiento: [{tile, side:'L'|'R'|'X'}]
-  function legalPlays(st, seat) {
-    const h = st.hand; if (!h || st.status !== "playing") return [];
-    const hand = h.hands[seat];
-    if (!h.board.length) {
-      if (!h.openers.includes(seat)) return [];
-      if (h.turn !== null && h.turn !== seat) return [];
-      const allowed = h.firstReq ? hand.filter((t) => t === h.firstReq) : hand;
-      return allowed.map((t) => ({ tile: t, side: "X" }));
-    }
-    if (h.turn !== seat) return [];
-    const [l, r] = ends(h), out = [];
-    for (const t of hand) {
-      const [a, b] = P(t);
-      if (a === l || b === l) out.push({ tile: t, side: "L" });
-      if ((a === r || b === r) && !(l === r && (a === l || b === l))) out.push({ tile: t, side: "R" });
-    }
-    return out;
-  }
-  const canDraw = (st, seat) => st.status === "playing" && st.hand.board.length > 0 && st.hand.turn === seat && legalPlays(st, seat).length === 0 && st.hand.pozo.length > 0;
-  const canPass = (st, seat) => st.status === "playing" && st.hand.board.length > 0 && st.hand.turn === seat && legalPlays(st, seat).length === 0 && st.hand.pozo.length === 0;
-
-  const nextSeat = (st, s) => (s + 1) % st.config.n;
-  const nameOf = (st, s) => (st.seats[s] && st.seats[s].name) || `Jugador ${s + 1}`;
-
-  function resolvePending(h, seat) {
-    if (!h.lacks) h.lacks = h.hands.map(() => []);
-    if (h.pend && h.pend.seat === seat) { h.lacks[seat] = h.pend.ends.slice().sort(); h.pend = null; }
-  }
-
-  function play(st, seat, tile, side) {
-    const lp = legalPlays(st, seat).find((p) => p.tile === tile && (p.side === side || p.side === "X"));
-    if (!lp) throw new Error("Jugada no válida");
-    const h = structuredClone(st.hand);
-    const [a, b] = P(tile);
-    if (lp.side === "X") { h.board = [[a, b]]; h.left = 0; h.mano = seat; h.firstReq = null; }
-    else {
-      const [l, r] = ends(h);
-      if (lp.side === "L") { h.board.unshift(b === l ? [a, b] : [b, a]); h.left = (h.left || 0) + 1; }
-      else h.board.push(a === r ? [a, b] : [b, a]);
-    }
-    h.hands[seat] = h.hands[seat].filter((t) => t !== tile);
-    if (!h.played) h.played = h.hands.map(() => []);
-    h.played[seat].push(tile);
-    if (!h.history) h.history = [];
-    h.history.push({ s: seat, a: "play", tile, side: lp.side, ends: [h.board[0][0], h.board[h.board.length - 1][1]], forced: lp.side === "X" && !!st.hand.firstReq });
-    resolvePending(h, seat);
-    h.passes = 0; h.drew = 0;
-    let s2 = { ...st, hand: h, log: pushLog(st.log, `${nameOf(st, seat)} tiró ${tile}`), v: st.v + 1 };
-    if (!h.hands[seat].length) return endHand(s2, { type: "domino", seat });
-    h.turn = nextSeat(st, seat); h.since = Date.now();
-    return s2;
-  }
-
-  function draw(st, seat) {
-    if (!canDraw(st, seat)) throw new Error("No puedes comer");
-    const h = structuredClone(st.hand);
-    const t = h.pozo.pop(); h.hands[seat].push(t); h.drew = (h.drew || 0) + 1;
-    // Si come, no tenía ninguna punta. La ficha que acaba de comer puede pegar, así que el dato
-    // se confirma en su siguiente acción (vuelve a comer, tira o pasa).
-    resolvePending(h, seat);
-    h.lacks[seat] = [];
-    h.pend = { seat, ends: [...new Set(ends(h))] };
-    if (!h.history) h.history = [];
-    h.history.push({ s: seat, a: "draw", ends: ends(h) });
-    return { ...st, hand: h, log: pushLog(st.log, `${nameOf(st, seat)} comió`), v: st.v + 1 };
-  }
-
-  function pass(st, seat) {
-    if (!canPass(st, seat)) throw new Error("No puedes pasar: tienes jugada");
-    const h = structuredClone(st.hand);
-    h.passes += 1; h.drew = 0;
-    resolvePending(h, seat);
-    h.lacks[seat] = [...new Set([...h.lacks[seat], ...ends(h)])].sort();
-    if (!h.history) h.history = [];
-    h.history.push({ s: seat, a: "pass", ends: ends(h) });
-    let s2 = { ...st, hand: h, log: pushLog(st.log, `${nameOf(st, seat)} pasó`), v: st.v + 1 };
-    if (h.passes >= st.config.n) return endHand(s2, { type: "cerrado" });
-    h.turn = nextSeat(st, seat); h.since = Date.now();
-    return s2;
-  }
-
-  function endHand(st, how) {
-    const c = st.config, h = st.hand, n = c.n;
-    const sums = h.hands.map(sumHand);
-    const add = Array(nScores(c)).fill(0);
-    let winner; // asiento (individual) o equipo
-    const orderFromMano = []; for (let i = 0; i < n; i++) orderFromMano.push((h.mano + i) % n);
-    if (c.teams) {
-      const tsum = [sums[0] + sums[2], sums[1] + sums[3]];
-      if (how.type === "domino") winner = how.seat % 2;
-      else winner = tsum[0] === tsum[1] ? h.mano % 2 : (tsum[0] < tsum[1] ? 0 : 1);
-      add[1 - winner] = tsum[1 - winner];
-    } else if (n === 2) {
-      if (how.type === "domino") winner = how.seat;
-      else winner = sums[0] === sums[1] ? h.mano : (sums[0] < sums[1] ? 0 : 1);
-      add[1 - winner] = sums[1 - winner];
-    } else {
-      // Individual 3-4: todos se anotan sus puntos en contra
-      sums.forEach((s, i) => (add[i] = s));
-      if (how.type === "domino") winner = how.seat;
-      else { let min = Infinity; for (const s of orderFromMano) if (sums[s] < min) { min = sums[s]; winner = s; } }
-    }
-    const scores = st.scores.map((s, i) => s + add[i]);
-    const over = scores.some((s) => s >= TARGET);
-    let champion = null;
-    if (over) {
-      if (c.teams || n === 2) champion = scores[0] >= TARGET && scores[1] >= TARGET ? (scores[0] < scores[1] ? 0 : 1) : (scores[0] >= TARGET ? 1 : 0);
-      else { let min = Infinity; scores.forEach((s, i) => { if (s < min) { min = s; champion = i; } }); }
-    }
-    const result = { type: how.type, seat: how.seat ?? null, winner, add, sums, hands: h.hands, over, champion };
-    const label = how.type === "domino" ? `${nameOf(st, how.seat)} dominó` : "Juego cerrado";
-    return { ...st, hand: { ...h, turn: null }, status: over ? "gameover" : "handover", scores, lastWinner: winner, result,
-      log: pushLog(st.log, label), v: st.v + 1 };
-  }
-
-  // Tiempos: 15 s para decidir quién sale (pareja ganadora), 20 s por turno
-  const limitMs = (h) => (h && h.turn === null && !h.board.length ? 15000 : 20000);
-
-  // Se acabó el tiempo: si nadie de la pareja salió, sale la ficha más alta de los dos;
-  // si es un turno normal, come lo necesario y tira una ficha al azar (o pasa si no puede)
-  function autoMove(st, rnd = Math.random) {
-    if (st.status !== "playing") return st;
-    const h = st.hand;
-    const markAuto = (s2) => { const hh = s2.hand; if (hh && hh.history && hh.history.length) hh.history[hh.history.length - 1].auto = true; return s2; };
-    const tag = (s2, seat) => markAuto({ ...s2, log: pushLog(s2.log.slice(0, -1), `Se acabó el tiempo de ${nameOf(st, seat)}`).concat(s2.log.slice(-1)).slice(-12) }) ;
-    if (h.turn === null && !h.board.length) {
-      let best = null, seat = h.openers[0];
-      for (const s of h.openers) for (const t of h.hands[s]) if (best === null || tileRank(t) > tileRank(best)) { best = t; seat = s; }
-      const s2 = markAuto(play(st, seat, best, "X"));
-      return { ...s2, log: pushLog(s2.log.slice(0, -1), "Nadie salió a tiempo").concat(s2.log.slice(-1)).slice(-12) };
-    }
-    const seat = h.turn; let cur = st;
-    for (let guard = 0; guard < 30; guard++) {
-      const lp = legalPlays(cur, seat);
-      if (lp.length) { const p = lp[Math.floor(rnd() * lp.length)]; return tag(play(cur, seat, p.tile, p.side), seat); }
-      if (canDraw(cur, seat)) { cur = draw(cur, seat); continue; }
-      if (canPass(cur, seat)) return tag(pass(cur, seat), seat);
-      break;
-    }
-    return cur;
-  }
-
-  function newGame(st) {
-    return { ...st, status: "lobby", scores: Array(nScores(st.config)).fill(0), handNo: 0, lastWinner: null, hand: null, result: null, log: pushLog(st.log, "Nueva partida"), v: st.v + 1 };
-  }
-
   // Registro: fichas que un jugador todavía puede tener, desde la vista de "viewer"
   // Deducción cruzada: para cada ficha desconocida, ¿quién la puede tener de verdad?
   // Reparte las fichas desconocidas entre los jugadores (y el pozo) respetando cuántas tiene cada uno
@@ -795,10 +593,13 @@ const E = (() => {
 
   return { explainTile, speculate, advise, openingPlan, TUNE, LEVELS, limitMs, autoMove, deduce, botMove, tracker, T, P, pts, isDbl, sumHand, fullSet, validConfig, hasPozo, teamOf, nScores, newTable, deal, legalPlays, canDraw, canPass, play, draw, pass, newGame, ends, nameOf, TARGET };
 })();
+window.E = E;
 
 
 </script>
-<script>
+<script type="module">
+// Interfaz. Es módulo para que corra después del de arriba (los módulos se ejecutan en orden) y
+// encuentre window.E; se divide en src/ui/ y src/app/ en las fases 5 y 6 de #3.
 (() => {
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
