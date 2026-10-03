@@ -75,9 +75,10 @@ myDomino/
 │   │   └── index.js           # reexporta la API de la IA
 │   │
 │   ├── services/              # todo lo que toca el exterior
-│   │   ├── firebase.js        # initializeApp, auth (anónimo + Google), applyUser
-│   │   ├── tables-repo.js     # adaptador de Firestore (makeDb), subscribeList, openTable, mutate
-│   │   └── prefs.js           # wrapper seguro de localStorage: nombre, niveles, timer, orden de la mano
+│   │   ├── firebase.js        # initFirebase (anónimo), signInWithGoogle, signOut
+│   │   ├── tables-repo.js     # makeDb, watchTableList, watchTable, saveNewTable, updateTable, SKIP
+│   │   ├── prefs.js           # ls: wrapper seguro de localStorage
+│   │   └── index.js           # reexporta la API de servicios
 │   │
 │   ├── app/                   # estado y casos de uso de la app
 │   │   ├── store.js           # view, tableState, config, me, listCache + subscribe/notify
@@ -101,7 +102,9 @@ myDomino/
 │           └── notes.js       # cycleNote
 └── tests/
     ├── engine.test.js         # reparto, jugadas, tranque, puntuación por modo
-    └── ai.test.js             # los bots solo devuelven jugadas legales y no ven fichas ajenas
+    ├── ai.test.js             # los bots solo devuelven jugadas legales y no ven fichas ajenas
+    ├── services.test.js       # mesas en Firestore, transacciones, sesión, localStorage
+    └── fakes/firebase.js      # Firebase de mentira en memoria para las pruebas
 ```
 
 Los nombres de función son los que ya existen hoy; la migración los mueve, no los renombra.
@@ -158,10 +161,19 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 | 1 ✅ | Sacar CSS a `styles/` y la configuración a `src/config.js`. El JS sigue igual. | bajo |
 | 2 ✅ | Pasar el motor a `src/engine/` como módulos ES y agregar `tests/engine.test.js`. Los dos `<script>` de `index.html` pasan a ser módulos: el primero importa el motor y arma `window.E` con la IA que todavía vive ahí; el segundo es la UI. Desde aquí el juego ya no abre con doble clic. | bajo: el motor ya es puro |
 | 3 ✅ | Pasar bots, especulación y consejo a `src/ai/` con `tests/ai.test.js`. El primer `<script>` de `index.html` queda solo para armar `window.E`. Se agregó `heuristics.js` para que `heurScore` (que usan la especulación y los bots) no cree un ciclo entre tres archivos. | bajo |
-| 4 | Pasar Firebase, `localStorage` y `mutate` a `src/services/`. | medio: auth y transacciones |
+| 4 ✅ | Pasar Firebase, `localStorage` y `mutate` a `src/services/`. Lo que decide qué ver y qué mensaje mostrar (`view`, `render`, textos de error) se queda en la interfaz; los servicios solo hablan con Firebase y devuelven datos o errores. La interfaz ya importa directo de `src/services/`. | medio: auth y transacciones |
 | 5 | Introducir `app/store.js` y `app/actions.js`; quitar las variables globales de la UI. | medio: es el cambio más grande |
-| 6 | Dividir la UI en `ui/screens` y `ui/components`; borrar código muerto. | bajo |
+| 6 | Dividir la UI en `ui/screens` y `ui/components`; borrar código muerto (ESLint marca `userCap`, `sampleCap`, `isOwnerView`, `sleep`, `renderPending` y `cycleNote`). | bajo |
 | 7 (opcional) | IA en Web Worker; SDK modular de Firebase. | medio |
+
+### Cómo se prueba lo que toca Firebase
+
+Firebase real no se puede usar en las pruebas automáticas, así que hay dos redes de seguridad:
+
+- `tests/services.test.js` corre los servicios contra un Firebase de mentira en memoria (`tests/fakes/firebase.js`): guardar y leer mesas, transacciones, `SKIP`, borrar, errores, entrar como invitado, Google con ventana o redirección, y salir.
+- En cada fase que toca servicios o interfaz, se juega una partida en línea completa en el navegador con dos jugadores (contextos separados) y un Firebase de mentira inyectado en lugar del CDN, en `main` y en la rama, y se comparan las pantallas y los documentos guardados.
+
+La prueba con el Firebase real (dominio autorizado, reglas de Firestore, login con Google) queda para el final de la migración.
 
 ## 7. Consecuencias
 

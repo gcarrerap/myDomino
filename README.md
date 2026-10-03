@@ -96,7 +96,7 @@ No dejes la base en *modo de prueba*: en ese modo cualquiera puede leer o borrar
 
 ```
 myDomino/
-├── index.html          # interfaz y sincronización (JavaScript)
+├── index.html          # interfaz (JavaScript)
 ├── styles/
 │   ├── reset.css       # reset mínimo de la página
 │   ├── tokens.css      # colores, tipografía y tema claro/oscuro
@@ -113,18 +113,25 @@ myDomino/
 │   │   ├── scoring.js  # fin de mano y puntos en contra
 │   │   ├── timing.js   # tiempo por turno y jugada automática
 │   │   └── index.js    # API del motor
-│   └── ai/             # jugadores de la compu y consejo (módulos ES, funciones puras)
-│       ├── tune.js        # niveles y parámetros
-│       ├── heuristics.js  # criterios de jugada compartidos
-│       ├── deduce.js      # registro: qué fichas puede tener cada quien
-│       ├── speculate.js   # leer los tiros ajenos como decisiones (probabilidades)
-│       ├── search.js      # simulaciones Monte Carlo
-│       ├── bots.js        # plan de salida y jugada de cada nivel
-│       ├── advice.js      # consejo: qué tiraría cada nivel y por qué
-│       └── index.js       # API de la IA
+│   ├── ai/             # jugadores de la compu y consejo (módulos ES, funciones puras)
+│   │   ├── tune.js        # niveles y parámetros
+│   │   ├── heuristics.js  # criterios de jugada compartidos
+│   │   ├── deduce.js      # registro: qué fichas puede tener cada quien
+│   │   ├── speculate.js   # leer los tiros ajenos como decisiones (probabilidades)
+│   │   ├── search.js      # simulaciones Monte Carlo
+│   │   ├── bots.js        # plan de salida y jugada de cada nivel
+│   │   ├── advice.js      # consejo: qué tiraría cada nivel y por qué
+│   │   └── index.js       # API de la IA
+│   └── services/       # todo lo que toca el exterior
+│       ├── firebase.js    # arranque, invitado, entrar con Google, salir
+│       ├── tables-repo.js # mesas en Firestore: guardar, escuchar, cambios con transacción
+│       ├── prefs.js       # preferencias del dispositivo en localStorage
+│       └── index.js       # API de servicios
 ├── tests/
 │   ├── engine.test.js  # pruebas del motor
-│   └── ai.test.js      # pruebas de la IA
+│   ├── ai.test.js      # pruebas de la IA
+│   ├── services.test.js # pruebas de los servicios
+│   └── fakes/          # Firebase de mentira para las pruebas
 ├── package.json        # solo para correr las pruebas
 ├── DESIGN.md           # diseño de la estructura modular
 └── README.md
@@ -133,8 +140,8 @@ myDomino/
 Dentro de `index.html` el JavaScript está organizado en estas partes:
 
 - **Dibujo:** las fichas y la hilera de la mesa en SVG.
-- **Interfaz:** lobby, mesa, consejo y notas.
-- **Firebase:** autenticación y lectura/escritura de mesas en Firestore. Cada mesa se guarda como JSON en un solo documento.
+- **Interfaz:** lobby, mesa, consejo y notas, y qué mostrar cuando cambia una mesa o falla la conexión.
+- **Estado de la app:** pantalla actual, mesa abierta, jugadores de práctica y reloj de turno (pasa a `src/app/` en la fase 5).
 
 ### Hacia dónde va
 
@@ -159,7 +166,7 @@ La migración se hace por fases, cada una en su propio PR y sin cambiar el compo
 
 ### Pruebas
 
-El motor y la IA tienen pruebas que corren con Node (18 o más nuevo), sin instalar nada:
+El motor, la IA y los servicios tienen pruebas que corren con Node (18 o más nuevo), sin instalar nada:
 
 ```bash
 npm test
@@ -167,3 +174,4 @@ npm test
 
 - **Motor:** el reparto en cada modo, jugadas válidas, comer y pasar, la puntuación (dominó, tranque, empates, fin de partida) y partidas completas con jugadas automáticas.
 - **IA:** los tres niveles solo hacen jugadas válidas en todos los modos, el registro respeta lo que se sabe (quién pasó), el plan de salida, el consejo y las probabilidades de la especulación. Además hay una prueba de que **la compu no hace trampa**: si se reacomodan las fichas que un jugador no puede ver, su decisión y el consejo no cambian.
+- **Servicios:** con un Firebase de mentira en memoria: guardar y leer mesas (con listas dentro de listas), la lista de mesas recientes, cambios con transacción (cancelar, borrar, jugada inválida, mesa que ya no existe), entrar como invitado, entrar con Google (ventana o redirección), salir y `localStorage` bloqueado.
