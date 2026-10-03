@@ -26,9 +26,10 @@ window.E = { explainTile, speculate, advise, openingPlan, TUNE, LEVELS, limitMs,
 </script>
 <script type="module">
 // Interfaz. Es módulo para que corra después del de arriba (los módulos se ejecutan en orden) y
-// encuentre window.E; se divide en src/ui/ y src/app/ en las fases 5 y 6 de #3.
-import { ls, initFirebase, signInWithGoogle, signOut, SKIP, makeDb, watchTableList, watchTable, saveNewTable, updateTable } from "./src/services/index.js";
+// encuentre window.E. El estado y las acciones viven en src/app/; la interfaz se divide en src/ui/ en la fase 6 de #3.
+import { state, subscribe, isGoogle, timerOn, canReveal, mySeat, turnKey, specFor, noteKey, BOT_NAMES, scheduleBot, tickClock, actions } from "./src/app/index.js";
 (() => {
+const { mutate, leave, openTable, createTable, startPractice, googleIn, googleOut, askAdvice, handArrangement } = actions;
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -172,103 +173,19 @@ function chainSVG(board, origin, W, H, vertical, budget) {
   return { svg: `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cadena de ${board.length} fichas">${tiles}</svg>`, box };
 }
 
-// ---------- Identidad y almacenamiento ----------
-let me = { id: ls.get("dom.dev") || ("d" + Math.random().toString(36).slice(2, 10)), name: ls.get("dom.name") || "" };
-ls.set("dom.dev", me.id);
-let db = null, dbTried = false, userCap = null, sampleCap = null, isOwnerView = false;
-// Especulación cacheada por turno y por quien mira (es un cálculo de unas décimas de segundo)
-let specCache = { key: null, viewer: null, data: null };
-function specFor(st, viewer) {
-  const key = turnKey(st) + "|" + (st.hand && st.hand.history ? st.hand.history.length : 0);
-  if (specCache.key !== key || specCache.viewer !== viewer) specCache = { key, viewer, data: E.speculate(st, viewer) };
-  return specCache.data;
-}
-// "Ver manos": solo para evaluar la especulación. Solo cambia lo que TÚ ves; la compu y Claude nunca ven fichas ajenas.
-const canReveal = () => view.practice || isOwnerView;
-let view = { screen: "lobby", code: null, practice: false, sel: null, err: "" };
-let tableState = null, unsubTable = null, unsubList = null, listCache = [];
-let config = { n: 4, teams: true, per: 7, timer: ls.get("dom.timer") !== "0" };
-const timerOn = (st) => st && st.config && st.config.timer !== false; // mesas viejas: con tiempo
-const BOT_NAMES = ["Lupe", "Toño", "Chuy"];
-let botLevels = [2, 2, 2];
-try { const bl = JSON.parse(ls.get("dom.botLevels") || "null"); if (Array.isArray(bl) && bl.length === 3) botLevels = bl.map((x) => Math.min(3, Math.max(1, +x || 2))); } catch {}
-const saveLevels = () => ls.set("dom.botLevels", JSON.stringify(botLevels));
+// ---------- Lobby ----------
 const LEVEL_HELP = { 1: "Tira mulas y fichas pesadas.", 2: "Busca dominar: hacer pasar a los rivales y ayudar a su pareja.", 3: "Como el intermedio, pero imagina dónde están las fichas usando su registro y leyendo los tiros de los demás, y prueba cada tiro hasta el final de la mano." };
 function levelSeg(id, lv) {
   return `<div class="seg lvl" role="group" aria-label="Nivel">${[1, 2, 3].map((l) => `<button data-lvl="${id}:${l}" aria-pressed="${lv === l}">${E.LEVELS[l]}</button>`).join("")}</div>`;
 }
 
-const deviceId = me.id;
-let authUser = null;
-const isGoogle = () => !!(authUser && !authUser.isAnonymous);
 function authBox() {
-  if (!dbTried || !db) return "";
-  if (isGoogle()) return `<div class="row"><p class="hint" style="flex:1">Conectado con Google: <b>${esc(authUser.email || authUser.displayName || "")}</b></p><button class="ghost" id="gout">Salir</button></div>`;
+  if (!state.dbTried || !state.db) return "";
+  if (isGoogle()) return `<div class="row"><p class="hint" style="flex:1">Conectado con Google: <b>${esc(state.authUser.email || state.authUser.displayName || "")}</b></p><button class="ghost" id="gout">Salir</button></div>`;
   return `<div class="row"><button id="gin">Entrar con Google</button><p class="hint" style="flex:1">o sigue como invitado. Con Google eres el mismo jugador en cualquier teléfono.</p></div>`;
-}
-function applyUser(u) {
-  authUser = u;
-  me.id = isGoogle() ? "g_" + u.uid : deviceId;
-  if (isGoogle() && !me.name && u.displayName) { me.name = u.displayName.split(" ")[0].slice(0, 16); ls.set("dom.name", me.name); }
-}
-async function googleIn() {
-  try { await signInWithGoogle(); }
-  catch (e) {
-    if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") { view.err = e.code === "auth/unauthorized-domain" ? "Este sitio aún no está autorizado en Firebase (Authorized domains)." : "No se pudo entrar con Google."; render(); }
-  }
-}
-const googleOut = signOut;
-
-async function initCaps() {
-  try {
-    db = makeDb(await initFirebase((u, first) => { applyUser(u); if (!first && view.screen === "lobby") render(); }));
-  } catch (e) { console.warn("Firebase no disponible:", e); db = null; }
-  dbTried = true; render();
-  if (db) subscribeList();
-}
-
-function subscribeList() {
-  if (!db || unsubList) return;
-  unsubList = watchTableList(db, (list) => {
-    listCache = list;
-    if (view.screen === "lobby") renderTables();
-  }, () => { unsubList = null; });
-}
-
-function openTable(code) {
-  view = { screen: "table", code, practice: false, sel: null, err: "" };
-  if (unsubTable) unsubTable();
-  tableState = null; render();
-  unsubTable = watchTable(db, code, (st) => {
-    tableState = st;
-    if (!st) { view.err = "Esta mesa ya no existe."; }
-    render();
-  }, (e) => { view.err = "Se perdió la conexión con la mesa. Vuelve a abrirla."; render(); });
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Aplica un cambio a la mesa: en práctica, al estado local; en línea, con una transacción (lee lo último, valida y guarda)
-async function mutate(fn) {
-  view.err = "";
-  if (view.practice) {
-    try { const nx = fn(structuredClone(tableState)); if (nx !== SKIP) tableState = nx; } catch (e) { view.err = e.message; }
-    view.sel = null; render(); return;
-  }
-  try {
-    const skipped = await updateTable(db, view.code, fn);
-    if (skipped) { render(); return; }
-  } catch (e) {
-    view.err = e.code === "permission-denied" ? "No hay permiso para guardar en esta mesa." : (e.message || "Algo falló, intenta otra vez.");
-  }
-  view.sel = null; render();
 }
 
 // ---------- Helpers de mesa ----------
-function mySeat(st) {
-  if (!st) return -1;
-  if (view.practice) return 0;
-  return st.seats.findIndex((s) => s && s.id === me.id);
-}
 function modeLabel(c) {
   return modeLabel0(c) + (c.timer === false ? " · sin límite de tiempo" : "");
 }
@@ -285,23 +202,23 @@ function scoreLabels(st) {
 const teamColor = (t) => (t === 0 ? "var(--ta)" : "var(--tb)");
 
 // ---------- Render ----------
-let handDragging = false, renderPending = false;
 function render() {
-  if (handDragging) { renderPending = true; return; } // no redibujar a medio arrastre
+  if (state.dragging) return; // no redibujar a medio arrastre
   const app = $("#app");
-  if (view.screen === "lobby") return renderLobby(app);
+  if (state.view.screen === "lobby") return renderLobby(app);
   return renderTable(app);
 }
 
 function renderLobby(app) {
+  $("#modal").innerHTML = "";
   app.className = "wrap";
-  const c = config;
+  const c = state.config;
   const perOpts = c.n === 2 ? [[7, "7 fichas, se come"], [14, "14 fichas, sin pozo"]] : c.n === 3 ? [[9, "9 fichas + muestra"], [7, "7 fichas, se come"]] : [[7, "7 fichas"]];
   app.innerHTML = `
     <div class="brand"><h1>Dominó de la Familia</h1><small>Partidas a ${E.TARGET} puntos</small></div>
     <section class="panel">
       <label for="nm">Tu nombre en la mesa</label>
-      <input type="text" id="nm" maxlength="16" placeholder="Ej. Barbara" value="${esc(me.name)}">
+      <input type="text" id="nm" maxlength="16" placeholder="Ej. Barbara" value="${esc(state.me.name)}">
       ${authBox()}
     </section>
     <section class="panel">
@@ -318,40 +235,40 @@ function renderLobby(app) {
         <button data-timer="0" aria-pressed="${!c.timer}">Sin límite de tiempo</button></div>
       <p class="hint">${esc(modeLabel(c))}. ${c.n === 4 && c.teams ? "Parejas: los asientos 1 y 3 contra 2 y 4." : ""}</p>
       <div class="row">
-        <button class="primary" id="create" ${db ? "" : "disabled"}>Crear mesa</button>
+        <button class="primary" id="create" ${state.db ? "" : "disabled"}>Crear mesa</button>
         <button id="practice">Practicar contra la compu</button>
       </div>
       <div class="cpu">
         <h2>Nivel de la compu (práctica)</h2>
-        ${Array.from({ length: c.n - 1 }, (_, i) => `<div class="cpurow"><span class="cpuname">${BOT_NAMES[i]}${c.teams ? (i === 1 ? " · tu pareja" : " · rival") : ""}</span>${levelSeg("lobby" + i, botLevels[i])}</div>`).join("")}
+        ${Array.from({ length: c.n - 1 }, (_, i) => `<div class="cpurow"><span class="cpuname">${BOT_NAMES[i]}${c.teams ? (i === 1 ? " · tu pareja" : " · rival") : ""}</span>${levelSeg("lobby" + i, state.botLevels[i])}</div>`).join("")}
         <p class="hint">Básico: ${LEVEL_HELP[1]} Intermedio: ${LEVEL_HELP[2].toLowerCase()} Avanzado: ${LEVEL_HELP[3].toLowerCase()}</p>
       </div>
-      ${dbTried && !db ? `<p class="hint">No se pudo conectar con las mesas en línea. Revisa tu internet y recarga; mientras, puedes practicar contra la compu.</p>` : ""}
+      ${state.dbTried && !state.db ? `<p class="hint">No se pudo conectar con las mesas en línea. Revisa tu internet y recarga; mientras, puedes practicar contra la compu.</p>` : ""}
     </section>
     <section class="panel">
       <h2>Mesas abiertas</h2>
       <div class="tables" id="tables"></div>
     </section>
-    <p class="err" id="err">${esc(view.err)}</p>`;
-  $("#nm").addEventListener("input", (e) => { me.name = e.target.value.trim(); ls.set("dom.name", me.name); });
+    <p class="err" id="err">${esc(state.view.err)}</p>`;
+  $("#nm").addEventListener("input", (e) => actions.setName(e.target.value));
   $("#gin")?.addEventListener("click", googleIn);
   $("#gout")?.addEventListener("click", googleOut);
-  app.querySelectorAll("[data-n]").forEach((b) => b.onclick = () => { const n = +b.dataset.n; config = { n, teams: n === 4, per: n === 2 ? 7 : n === 3 ? 9 : 7, timer: config.timer }; render(); });
-  app.querySelectorAll("[data-timer]").forEach((b) => b.onclick = () => { config.timer = b.dataset.timer === "1"; ls.set("dom.timer", config.timer ? "1" : "0"); render(); });
-  app.querySelectorAll("[data-teams]").forEach((b) => b.onclick = () => { config.teams = b.dataset.teams === "1"; render(); });
-  app.querySelectorAll("[data-per]").forEach((b) => b.onclick = () => { config.per = +b.dataset.per; render(); });
-  $("#create").onclick = createTable;
+  app.querySelectorAll("[data-n]").forEach((b) => b.onclick = () => actions.setPlayers(+b.dataset.n));
+  app.querySelectorAll("[data-timer]").forEach((b) => b.onclick = () => actions.setTimer(b.dataset.timer === "1"));
+  app.querySelectorAll("[data-teams]").forEach((b) => b.onclick = () => actions.setTeams(b.dataset.teams === "1"));
+  app.querySelectorAll("[data-per]").forEach((b) => b.onclick = () => actions.setPer(+b.dataset.per));
+  $("#create").onclick = () => { if (needName()) return; createTable(); };
   $("#practice").onclick = startPractice;
-  app.querySelectorAll("[data-lvl]").forEach((b) => b.onclick = () => { const [id, l] = b.dataset.lvl.split(":"); botLevels[+id.replace("lobby", "")] = +l; saveLevels(); render(); });
+  app.querySelectorAll("[data-lvl]").forEach((b) => b.onclick = () => { const [id, l] = b.dataset.lvl.split(":"); actions.setBotLevel(+id.replace("lobby", ""), +l); });
   renderTables();
 }
 
 function renderTables() {
   const box = $("#tables"); if (!box) return;
-  if (!db) { box.innerHTML = `<p class="hint">${dbTried ? "No se pudo conectar con las mesas en línea. Recarga la página." : "Buscando mesas…"}</p>`; return; }
-  if (!listCache.length) { box.innerHTML = `<p class="hint">Todavía no hay mesas. Crea una y comparte el enlace de esta página con tu familia.</p>`; return; }
-  box.innerHTML = listCache.map((t) => {
-    const filled = t.seats.filter(Boolean).length, mine = t.seats.some((s) => s && s.id === me.id);
+  if (!state.db) { box.innerHTML = `<p class="hint">${state.dbTried ? "No se pudo conectar con las mesas en línea. Recarga la página." : "Buscando mesas…"}</p>`; return; }
+  if (!state.listCache.length) { box.innerHTML = `<p class="hint">Todavía no hay mesas. Crea una y comparte el enlace de esta página con tu familia.</p>`; return; }
+  box.innerHTML = state.listCache.map((t) => {
+    const filled = t.seats.filter(Boolean).length, mine = t.seats.some((s) => s && s.id === state.me.id);
     const st = t.status === "lobby" ? `${filled}/${t.config.n} sentados` : t.status === "gameover" ? "Partida terminada" : `Mano ${t.handNo}`;
     return `<div class="trow"><div><div class="code">${esc(t.code)}</div><div class="meta">${esc(modeLabel(t.config))} · ${st}</div>
       <div class="meta">${t.seats.filter(Boolean).map((s) => esc(s.name)).join(", ") || "Sin jugadores"}</div></div>
@@ -360,84 +277,10 @@ function renderTables() {
   box.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => openTable(b.dataset.open));
 }
 
-function needName() { if (!me.name) { view.err = "Escribe tu nombre primero."; render(); $("#nm")?.focus(); return true; } return false; }
+function needName() { if (!state.me.name) { actions.setError("Escribe tu nombre primero."); $("#nm")?.focus(); return true; } return false; }
 
-async function createTable() {
-  if (needName() || !db) return;
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const code = Array.from({ length: 4 }, () => letters[Math.floor(Math.random() * letters.length)]).join("");
-  const st = E.newTable(code, { ...config }, me.id);
-  st.seats[0] = { id: me.id, name: me.name };
-  try { await saveNewTable(db, st); openTable(code); }
-  catch (e) { view.err = e.code === "permission-denied" ? "No hay permiso para crear mesas." : e.code === "resource-exhausted" ? "Se alcanzó el límite gratis de hoy. Intenta mañana." : "No se pudo crear la mesa."; render(); }
-}
 
-function startPractice() {
-  let st = E.newTable("PRÁCTICA", { ...config }, me.id);
-  st.seats = st.seats.map((_, i) => (i === 0 ? { id: me.id, name: me.name || "Tú" } : { id: "bot" + i, name: BOT_NAMES[i - 1], level: botLevels[i - 1] }));
-  st = E.deal(st);
-  view = { screen: "table", code: st.code, practice: true, sel: null, err: "", track: null };
-  tableState = st; render();
-}
 
-// ---------- Jugadores simulados (solo en práctica) ----------
-let botTimer = null;
-// Quién de la compu actúa ahora. Al salir en parejas, cada compu revisa su juego: los primeros 5 s son para
-// pensar y luego sale según qué tan bueno es (juego 10/10 a los 5 s, 5/10 a los 10 s, 0/10 a los 15 s),
-// siempre antes de que se acabe el tiempo. Si yo salgo antes, ya no sale. Entre dos compus sale la que se decide primero.
-function openDelayMs(st, plan) {
-  let target = (15 - plan.rating) * 1000;
-  if (timerOn(st)) target = Math.min(target, E.limitMs(st.hand) - 1000);
-  return Math.max(0, target - (Date.now() - st.hand.since));
-}
-function botActor(st) {
-  if (!st || st.status !== "playing") return null;
-  const h = st.hand;
-  if (h.turn !== null) return h.turn === 0 ? null : { seat: h.turn };
-  if (h.board.length) return null;
-  const cands = h.openers.filter((s) => s !== 0).map((s) => { const plan = E.openingPlan(h.hands[s]); return { seat: s, tile: plan.tile, delay: openDelayMs(st, plan) }; });
-  cands.sort((x, y) => x.delay - y.delay);
-  return cands[0] || null;
-}
-function scheduleBot() {
-  if (!view.practice || botTimer) return;
-  const act = botActor(tableState); if (!act) return;
-  const key = turnKey(tableState);
-  botTimer = setTimeout(() => {
-    botTimer = null;
-    const st = tableState;
-    if (turnKey(st) !== key) { scheduleBot(); return; } // cambió la mesa mientras esperaba: vuelve a decidir
-    const a = botActor(st); if (!view.practice || !a) return;
-    if (a.delay > 50) { scheduleBot(); return; } // todavía no le toca decidir
-    if (a.tile && E.legalPlays(st, a.seat).some((p) => p.tile === a.tile)) {
-      tableState = E.play(st, a.seat, a.tile, "X");
-    } else {
-      const m = E.botMove(st, a.seat, (st.seats[a.seat] && st.seats[a.seat].level) || 1); if (!m) return;
-      tableState = m.type === "play" ? E.play(st, a.seat, m.tile, m.side) : m.type === "draw" ? E.draw(st, a.seat) : E.pass(st, a.seat);
-    }
-    render();
-  }, act.delay !== undefined ? act.delay + 30 : (tableState.hand.drew ? 450 : 850));
-}
-
-function leave() {
-  clearTimeout(botTimer); botTimer = null; view.track = null;
-  if (unsubTable) { unsubTable(); unsubTable = null; }
-  tableState = null; view = { screen: "lobby", code: null, practice: false, sel: null, err: "" };
-  $("#modal").innerHTML = ""; render();
-}
-
-// ---------- Tu mano: orden y giro que tú escoges (solo en este teléfono) ----------
-let arr = { key: null, order: [], flip: {} };
-try { const sv = JSON.parse(ls.get("dom.arr") || "null"); if (sv && sv.key) arr = sv; } catch {}
-function handArrangement(st, seat) {
-  const key = `${st.code}|${st.created}|${st.handNo}|${seat}`, hand = st.hand.hands[seat];
-  if (arr.key !== key) arr = { key, order: hand.slice().sort((x, y) => E.pts(y) - E.pts(x)), flip: {} };
-  const keep = arr.order.filter((t) => hand.includes(t));
-  const added = hand.filter((t) => !keep.includes(t)); // fichas que comiste: van al final
-  arr.order = [...keep, ...added];
-  return arr.order;
-}
-const saveArr = () => ls.set("dom.arr", JSON.stringify(arr));
 
 // Posición de cada jugador en la mesa, vista desde mí: abajo yo; el turno pasa a la derecha, luego arriba, luego izquierda.
 function seatPos(st, seat, s) {
@@ -449,9 +292,9 @@ function seatPos(st, seat, s) {
 }
 
 function renderTable(app) {
-  const st = tableState;
+  const st = state.tableState;
   app.className = "wrap";
-  if (!st) { app.innerHTML = `<div class="top"><button class="ghost" id="back">← Mesas</button></div><p class="hint">${esc(view.err || "Cargando mesa…")}</p>`; $("#back").onclick = leave; $("#modal").innerHTML = ""; return; }
+  if (!st) { app.innerHTML = `<div class="top"><button class="ghost" id="back">← Mesas</button></div><p class="hint">${esc(state.view.err || "Cargando mesa…")}</p>`; $("#back").onclick = leave; $("#modal").innerHTML = ""; return; }
   const seat = mySeat(st);
   if (st.status === "lobby") return renderSeats(app, st, seat);
   app.className = "game";
@@ -461,7 +304,7 @@ function renderTable(app) {
   const turnSeats = h.turn !== null ? [h.turn] : (h.board.length ? [] : h.openers);
   const ded = st.status === "playing" ? E.deduce(st, seat) : null;
   const sureCount = (s) => (ded ? Object.values(ded.possible).filter((p) => p.length === 1 && p[0] === s).length : 0);
-  const reveal = view.reveal && canReveal();
+  const reveal = state.view.reveal && canReveal();
 
   // Marcador corto para la barra
   const short = c.teams
@@ -484,7 +327,7 @@ function renderTable(app) {
 
   const legal = seat >= 0 ? E.legalPlays(st, seat) : [];
   const legalTiles = new Set(legal.map((p) => p.tile));
-  const sel = view.sel && legalTiles.has(view.sel) ? view.sel : null;
+  const sel = state.view.sel && legalTiles.has(state.view.sel) ? state.view.sel : null;
   const selSides = sel ? legal.filter((p) => p.tile === sel).map((p) => p.side) : [];
   const [le, re] = h.board.length ? E.ends(h) : [null, null];
 
@@ -514,12 +357,12 @@ function renderTable(app) {
 
   const order = seat >= 0 ? handArrangement(st, seat) : [];
   const handHTML = seat >= 0 ? order.map((t) => {
-    const [a, b] = E.P(t), fl = arr.flip[t], cls = legalTiles.has(t) ? (t === sel ? "sel" : "play") : "dim";
-    return `<button class="tilebtn ${cls} ${view.rotMode ? "rot" : ""}" data-tile="${t}" aria-label="Ficha ${t}">${tileSVG(fl ? b : a, fl ? a : b, true, 22)}</button>`;
+    const [a, b] = E.P(t), fl = state.arr.flip[t], cls = legalTiles.has(t) ? (t === sel ? "sel" : "play") : "dim";
+    return `<button class="tilebtn ${cls} ${state.view.rotMode ? "rot" : ""}" data-tile="${t}" aria-label="Ficha ${t}">${tileSVG(fl ? b : a, fl ? a : b, true, 22)}</button>`;
   }).join("") : `<p class="hint" style="color:var(--felt-muted)">Estás mirando la mesa.</p>`;
 
-  const menu = view.menu ? `<div class="menuov" id="menuov"><nav class="menu" aria-label="Menú">
-      <div class="menu-head"><b>${esc(view.practice ? "Práctica" : "Mesa " + st.code)}</b><span class="hint">Mano ${st.handNo} · ${esc(modeLabel(c))}</span></div>
+  const menu = state.view.menu ? `<div class="menuov" id="menuov"><nav class="menu" aria-label="Menú">
+      <div class="menu-head"><b>${esc(state.view.practice ? "Práctica" : "Mesa " + st.code)}</b><span class="hint">Mano ${st.handNo} · ${esc(modeLabel(c))}</span></div>
       <div class="scores">${st.scores.map((v, i) => `<div class="score ${i === myScoreIdx ? "mine" : ""}"><div class="who">${c.teams ? `<span class="teamdot" style="background:${teamColor(i)}"></span>` : ""}${esc(labels[i])}</div>
         <div class="val">${v}<small> / ${E.TARGET}</small></div><div class="bar"><i style="width:${Math.min(100, v)}%"></i></div></div>`).join("")}</div>
       ${canReveal() ? `<button id="reveal" class="${reveal ? "primary" : ""}">${reveal ? "Ocultar manos" : "Ver manos (evaluar)"}</button>` : ""}
@@ -530,7 +373,7 @@ function renderTable(app) {
 
   app.innerHTML = `
     <header class="gbar">
-      <button class="menubtn" id="menu" aria-label="Menú" aria-expanded="${!!view.menu}"><span></span><span></span><span></span></button>
+      <button class="menubtn" id="menu" aria-label="Menú" aria-expanded="${!!state.view.menu}"><span></span><span></span><span></span></button>
       <div class="bar-sc">${short}</div>
       <div class="bar-info">${E.hasPozo(c) ? `Pozo <b>${h.pozo.length}</b>` : ""}${h.muestra ? ` <span class="muestra">${tileSVG(...E.P(h.muestra), false, 8)}</span>` : ""}</div>
     </header>
@@ -545,14 +388,14 @@ function renderTable(app) {
       <div class="status ${myTurn ? "me" : ""}">${esc(statusTxt)}${st.status === "playing" && timerOn(st) ? ` <span id="clock" class="clock"></span>` : ""}</div>
       ${st.status === "playing" && timerOn(st) ? `<div class="timer" aria-hidden="true"><i id="clockbar"></i></div>` : ""}
       ${sideBtns}
-      <div class="hand ${view.rotMode ? "rotmode" : ""}" id="hand">${handHTML}</div>
+      <div class="hand ${state.view.rotMode ? "rotmode" : ""}" id="hand">${handHTML}</div>
       ${seat >= 0 && st.status === "playing" ? `<div class="actions">
         <button id="draw" ${E.canDraw(st, seat) ? "" : "disabled"}>Comer${E.hasPozo(c) ? ` (${h.pozo.length})` : ""}</button>
         <button id="pass" ${E.canPass(st, seat) ? "" : "disabled"}>Pasar</button>
         <button id="advice" class="ghost-felt" ${myTurn ? "" : "disabled"}>Consejo</button>
-        <button id="rot" class="ghost-felt ${view.rotMode ? "on" : ""}" aria-pressed="${!!view.rotMode}">${view.rotMode ? "Listo" : "Girar"}</button></div>` : ""}
-      ${view.rotMode ? `<p class="rothint">Toca una ficha para girarla. Arrastra para acomodarla.</p>` : ""}
-      ${view.err ? `<p class="err">${esc(view.err)}</p>` : ""}
+        <button id="rot" class="ghost-felt ${state.view.rotMode ? "on" : ""}" aria-pressed="${!!state.view.rotMode}">${state.view.rotMode ? "Listo" : "Girar"}</button></div>` : ""}
+      ${state.view.rotMode ? `<p class="rothint">Toca una ficha para girarla. Arrastra para acomodarla.</p>` : ""}
+      ${state.view.err ? `<p class="err">${esc(state.view.err)}</p>` : ""}
     </section>
     ${menu}`;
 
@@ -568,27 +411,27 @@ function renderTable(app) {
   // Mano: tocar = tirar (o girar en modo Girar); arrastrar = acomodar
   const handEl = $("#hand");
   const tapTile = (t) => {
-    if (view.rotMode) { arr.flip[t] = !arr.flip[t]; saveArr(); return render(); }
+    if (state.view.rotMode) return actions.flipTile(t);
     if (!legalTiles.has(t)) return;
     const sides = legal.filter((p) => p.tile === t).map((p) => p.side);
     if (sides.length === 1) return mutate((s2) => E.play(s2, seat, t, sides[0]));
-    view.sel = view.sel === t ? null : t; render();
+    actions.setView({ sel: state.view.sel === t ? null : t });
   };
   if (handEl && seat >= 0) {
     let drag = null;
     const finish = (cancel) => {
       window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onCancel);
-      const d = drag; drag = null; handDragging = false; renderPending = false;
+      const d = drag; drag = null; actions.setDragging(false);
       if (!d) return;
       d.el.classList.remove("dragging");
       if (cancel) return render();
-      if (d.moved) { arr.order = [...handEl.querySelectorAll("[data-tile]")].map((x) => x.dataset.tile); saveArr(); render(); }
+      if (d.moved) actions.setHandOrder([...handEl.querySelectorAll("[data-tile]")].map((x) => x.dataset.tile));
       else tapTile(d.t);
     };
     const onMove = (e) => {
       if (!drag) return;
       if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 10) return;
-      if (!drag.moved) { drag.moved = true; drag.el.classList.add("dragging"); handDragging = true; }
+      if (!drag.moved) { drag.moved = true; drag.el.classList.add("dragging"); actions.setDragging(true); }
       e.preventDefault();
       const sibs = [...handEl.querySelectorAll("[data-tile]")].filter((x) => x !== drag.el);
       for (const o of sibs) {
@@ -611,65 +454,35 @@ function renderTable(app) {
   $("#draw")?.addEventListener("click", () => mutate((s2) => E.draw(s2, seat)));
   $("#pass")?.addEventListener("click", () => mutate((s2) => E.pass(s2, seat)));
   $("#advice")?.addEventListener("click", () => askAdvice(seat));
-  $("#rot")?.addEventListener("click", () => { view.rotMode = !view.rotMode; render(); });
-  $("#menu").onclick = () => { view.menu = !view.menu; render(); };
-  if (view.menu) {
-    $("#menuclose").onclick = () => { view.menu = false; render(); };
-    $("#menuov").onclick = (e) => { if (e.target.id === "menuov") { view.menu = false; render(); } };
+  $("#rot")?.addEventListener("click", () => actions.setView({ rotMode: !state.view.rotMode }));
+  $("#menu").onclick = () => actions.setView({ menu: !state.view.menu });
+  if (state.view.menu) {
+    $("#menuclose").onclick = () => actions.setView({ menu: false });
+    $("#menuov").onclick = (e) => { if (e.target.id === "menuov") actions.setView({ menu: false }); };
     $("#back").onclick = leave;
-    $("#reveal")?.addEventListener("click", () => { view.reveal = !view.reveal; render(); });
+    $("#reveal")?.addEventListener("click", () => actions.setView({ reveal: !state.view.reveal }));
   }
-  app.querySelectorAll("[data-track]").forEach((b) => b.onclick = () => { view.advice = null; view.trkSel = null; view.track = +b.dataset.track; render(); });
+  app.querySelectorAll("[data-track]").forEach((b) => b.onclick = () => actions.setView({ advice: null, trkSel: null, track: +b.dataset.track }));
   renderResult(st, seat);
   scheduleBot();
   tick();
 }
 
-// ---------- Reloj de turno ----------
-// Cada teléfono mide el tiempo desde que VIO el turno nuevo (así no importa si los relojes no coinciden)
-let clock = { key: null, start: 0, fired: false };
-function turnKey(st) {
-  if (!st || st.status !== "playing") return null;
-  const h = st.hand; return `${st.code}|${st.created}|${st.handNo}|${h.since}|${h.turn}|${h.board.length}`;
-}
+
+// ---------- Reloj de turno: pinta lo que calcula src/app/clock.js y, si se venció el turno, lo resuelve ----------
 function tick() {
-  const st = tableState; if (view.screen !== "table") return;
-  const key = turnKey(st);
-  if (!key) { clock = { key: null, start: 0, fired: false }; return; }
-  if (key !== clock.key) clock = { key, start: Date.now(), fired: false };
-  if (!timerOn(st)) return;
-  const h = st.hand, limit = E.limitMs(h), left = limit - (Date.now() - clock.start);
+  const c = tickClock(); if (!c) return;
   const el = $("#clock"), bar = $("#clockbar");
-  const secs = Math.max(0, Math.ceil(left / 1000));
-  if (el) { el.textContent = `· ${secs} s`; el.classList.toggle("low", secs <= 5); }
-  if (bar) { bar.style.width = Math.max(0, Math.min(100, (left / limit) * 100)) + "%"; bar.classList.toggle("low", secs <= 5); }
-  if (clock.fired) return;
-  // Quien tiene el turno lo resuelve al llegar a 0; los demás esperan 3 s más por si su teléfono no responde
-  const seat = mySeat(st);
-  const mine = h.turn !== null ? h.turn === seat : h.openers.includes(seat);
-  const grace = view.practice || mine ? 0 : 3000;
-  if (left <= -grace && (view.practice || seat >= 0)) {
-    clock.fired = true;
-    const expect = key;
-    mutate((s2) => (turnKey(s2) === expect ? E.autoMove(s2) : SKIP));
-  }
+  if (el) { el.textContent = `· ${c.secs} s`; el.classList.toggle("low", c.secs <= 5); }
+  if (bar) { bar.style.width = c.pct + "%"; bar.classList.toggle("low", c.secs <= 5); }
+  if (c.fire) c.fire();
 }
 setInterval(tick, 250);
 
 // ---------- Consejo: qué tirarían los tres niveles ----------
-function askAdvice(seat) {
-  const st = tableState; if (!st) return;
-  const key = turnKey(st);
-  view.track = null; view.advice = { key, data: null }; render();
-  setTimeout(() => {
-    if (!view.advice || view.advice.key !== key || turnKey(tableState) !== key) return;
-    try { view.advice.data = E.advise(tableState, seat); } catch (e) { view.advice.data = { error: true }; }
-    render();
-  }, 40);
-}
 function renderAdvice(st, seat) {
-  const m = $("#modal"), adv = view.advice;
-  if (!adv || turnKey(st) !== adv.key) { view.advice = null; m.innerHTML = ""; return renderTracker(st, seat); }
+  const m = $("#modal"), adv = state.view.advice;
+  if (!adv || turnKey(st) !== adv.key) { actions.setView({ advice: null }, false); m.innerHTML = ""; return renderTracker(st, seat); }
   const d = adv.data;
   let body;
   if (!d) body = `<p class="hint">Pensando… el avanzado está probando tus tiros en varios repartos posibles.</p>`;
@@ -694,7 +507,7 @@ function renderAdvice(st, seat) {
     <p class="hint">Cada nivel solo usa lo que tú puedes saber: tus fichas, la mesa y tu registro.${timerOn(st) ? " El reloj sigue corriendo." : ""}</p>
     ${body}
     <div class="row"><button id="advclose">Cerrar</button></div></div></div>`;
-  const close = () => { view.advice = null; m.innerHTML = ""; };
+  const close = () => { actions.setView({ advice: null }, false); m.innerHTML = ""; };
   $("#advclose").onclick = close;
   $("#advov").onclick = (e) => { if (e.target.id === "advov") close(); };
   m.querySelectorAll("[data-advplay]").forEach((b) => b.onclick = () => {
@@ -703,23 +516,12 @@ function renderAdvice(st, seat) {
   });
 }
 
-// Notas manuales (azul): solo viven en este teléfono
-let notes = {};
-try { notes = JSON.parse(ls.get("dom.notes") || "{}") || {}; } catch { notes = {}; }
-const noteKey = (st, target, t) => `${st.code}|${st.created}|${st.handNo}|${target}|${t}`;
-function cycleNote(st, target, t) {
-  const k = noteKey(st, target, t), cur = notes[k];
-  if (!cur) notes[k] = "si"; else if (cur === "si") notes[k] = "no"; else delete notes[k];
-  // guarda solo las notas de las manos recientes
-  const keys = Object.keys(notes); if (keys.length > 400) keys.slice(0, keys.length - 400).forEach((x) => delete notes[x]);
-  ls.set("dom.notes", JSON.stringify(notes));
-}
 
 // Explicación del porcentaje de una ficha (al tocarla en el registro)
 function tileDetail(st, seat, t, tr, spec) {
-  const tile = view.trkSel; if (!tile) return "";
+  const tile = state.view.trkSel; if (!tile) return "";
   const cellX = tr.rows.flat().find((x) => x.t === tile); if (!cellX || cellX.state === "gone" || cellX.state === "played") return "";
-  const name = E.nameOf(st, t), [a, b] = E.P(tile), note = notes[noteKey(st, t, tile)];
+  const name = E.nameOf(st, t), [a, b] = E.P(tile), note = state.notes[noteKey(st, t, tile)];
   let body;
   if (cellX.state === "sure") body = `<p><b>Seguro la tiene.</b> Ya no puede estar con nadie más: o los demás pasaron con sus números, o contando las fichas que les quedan no les cabe.</p>`;
   else if (cellX.state === "no") {
@@ -745,7 +547,7 @@ function tileDetail(st, seat, t, tr, spec) {
 }
 
 function renderTracker(st, seat) {
-  const m = $("#modal"), t = view.track;
+  const m = $("#modal"), t = state.view.track;
   if (t === null || t === undefined || !st.hand || t === seat) { m.innerHTML = ""; return; }
   const tr = E.tracker(st, seat, t), name = E.nameOf(st, t), h = st.hand;
   const pending = h.pend && h.pend.seat === t;
@@ -753,17 +555,17 @@ function renderTracker(st, seat) {
   const S = 15;
   const spec = specFor(st, seat);
   const pOf = (tile) => Math.round(100 * ((spec.prob[tile] && spec.prob[tile][t]) || 0));
-  const reveal = view.reveal && canReveal();
+  const reveal = state.view.reveal && canReveal();
   const real = reveal ? new Set(h.hands[t]) : null;
   const cell = (inner, pct) => `<span class="trk-cell">${inner}<span class="trk-pct">${pct}</span></span>`;
   const grid = tr.rows.map((row) => `<div class="trk-row">${row.map((x) => {
     const [a, b] = E.P(x.t);
     if (x.state === "gone") return cell(`<span class="trk-slot" title="${x.t}: ya salió o es tuya"></span>`, "");
     if (x.state === "played") return cell(`<span class="trk-t played" title="${x.t}: la tiró ${esc(name)}">${tileSVG(a, b, false, S)}</span>`, "");
-    const note = notes[noteKey(st, t, x.t)];
+    const note = state.notes[noteKey(st, t, x.t)];
     const p = x.state === "maybe" ? pOf(x.t) : null;
     const lbl = x.state === "sure" ? "seguro la tiene" : x.state === "no" ? "no la tiene" : `puede tenerla, probabilidad estimada ${p}%`;
-    return cell(`<button class="trk-t ${x.state} ${note ? "note-" + note : ""} ${real && real.has(x.t) ? "real" : ""} ${view.trkSel === x.t ? "sel" : ""}" data-note="${x.t}" aria-label="${x.t}: ${lbl}${note ? (note === "si" ? ", tu nota: creo que la tiene" : ", tu nota: creo que no") : ""}">${tileSVG(a, b, false, S)}</button>`,
+    return cell(`<button class="trk-t ${x.state} ${note ? "note-" + note : ""} ${real && real.has(x.t) ? "real" : ""} ${state.view.trkSel === x.t ? "sel" : ""}" data-note="${x.t}" aria-label="${x.t}: ${lbl}${note ? (note === "si" ? ", tu nota: creo que la tiene" : ", tu nota: creo que no") : ""}">${tileSVG(a, b, false, S)}</button>`,
       p === null ? "" : `${p}%`);
   }).join("")}</div>`).join("");
   let calib = "";
@@ -778,7 +580,7 @@ function renderTracker(st, seat) {
   }
   m.innerHTML = `<div class="overlay" id="trkov"><div class="modal" role="dialog" aria-modal="true" aria-label="Registro de ${esc(name)}">
     <h3>Registro de ${esc(name)}</h3>
-    ${view.practice && st.seats[t] && st.seats[t].level ? `<div class="cpurow"><span class="cpuname">Nivel</span>${levelSeg("seat" + t, st.seats[t].level)}</div>` : ""}
+    ${state.view.practice && st.seats[t] && st.seats[t].level ? `<div class="cpurow"><span class="cpuname">Nivel</span>${levelSeg("seat" + t, st.seats[t].level)}</div>` : ""}
     <p class="hint">Tiene <b>${tr.count}</b> ficha${tr.count === 1 ? "" : "s"}. ${exact ? "" : `Puede tener cualquiera de las que se ven completas.`}
       ${E.hasPozo(st.config) && h.pozo.length ? ` Hay ${h.pozo.length} en el pozo.` : ""}</p>
     ${tr.played.length ? `<p class="trk-played">Tiró: ${tr.played.map((x) => `<b>${x}</b>`).join(" ")}</p>` : ""}
@@ -802,29 +604,26 @@ function renderTracker(st, seat) {
       <span><span class="trk-t maybe note-no">${tileSVG(6, 1, false, 9)}</span> tu nota: creo que no</span></div>
     <div class="row"><button class="primary" id="trkclose">Cerrar</button></div>
   </div></div>`;
-  const close = () => { view.track = null; m.innerHTML = ""; };
+  const close = () => { actions.setView({ track: null }, false); m.innerHTML = ""; };
   $("#trkclose").onclick = close;
   $("#trkov").onclick = (e) => { if (e.target.id === "trkov") close(); };
   m.querySelectorAll("[data-lvl]").forEach((b) => b.onclick = () => {
-    const [id, l] = b.dataset.lvl.split(":"), sIdx = +id.replace("seat", "");
-    tableState.seats[sIdx] = { ...tableState.seats[sIdx], level: +l };
-    if (sIdx >= 1 && sIdx <= 3) { botLevels[sIdx - 1] = +l; saveLevels(); }
-    render();
+    const [id, l] = b.dataset.lvl.split(":");
+    actions.setSeatLevel(+id.replace("seat", ""), +l);
   });
   m.querySelectorAll("[data-setnote]").forEach((b) => b.onclick = () => {
     const [tile, val] = b.dataset.setnote.split("|"), k = noteKey(st, t, tile);
-    if (val) notes[k] = val; else delete notes[k];
-    ls.set("dom.notes", JSON.stringify(notes));
-    const sc = m.querySelector(".modal").scrollTop; renderTracker(tableState, seat); const md = m.querySelector(".modal"); if (md) md.scrollTop = sc;
+    actions.setNote(k, val);
+    const sc = m.querySelector(".modal").scrollTop; renderTracker(state.tableState, seat); const md = m.querySelector(".modal"); if (md) md.scrollTop = sc;
   });
   m.querySelectorAll("[data-note]").forEach((b) => b.onclick = () => {
-    view.trkSel = view.trkSel === b.dataset.note ? null : b.dataset.note;
-    const sc = m.querySelector(".modal").scrollTop; renderTracker(tableState, seat); const md = m.querySelector(".modal"); if (md) md.scrollTop = sc;
+    actions.setView({ trkSel: state.view.trkSel === b.dataset.note ? null : b.dataset.note }, false);
+    const sc = m.querySelector(".modal").scrollTop; renderTracker(state.tableState, seat); const md = m.querySelector(".modal"); if (md) md.scrollTop = sc;
   });
 }
 
 function renderSeats(app, st, seat) {
-  const c = st.config, full = st.seats.every(Boolean), isHost = st.host === me.id;
+  const c = st.config, full = st.seats.every(Boolean), isHost = st.host === state.me.id;
   app.innerHTML = `
     <div class="top"><button class="ghost" id="back">← Mesas</button><span class="code">Mesa ${esc(st.code)}</span></div>
     <section class="panel">
@@ -832,26 +631,26 @@ function renderSeats(app, st, seat) {
       <p class="hint">Comparte el enlace de esta página. Cada quien entra a la mesa ${esc(st.code)} y escoge asiento.</p>
       <div class="seats">${st.seats.map((s, i) => `<div class="seat ${s ? "taken" : ""}">
         <span class="lbl">${c.teams ? `<span class="teamdot" style="background:${teamColor(i % 2)}"></span>Pareja ${i % 2 === 0 ? "A" : "B"} · ` : ""}Asiento ${i + 1}</span>
-        <strong>${s ? esc(s.name) + (s.id === me.id ? " (tú)" : "") : "Libre"}</strong>
-        ${!s ? `<button data-sit="${i}">Sentarme aquí</button>` : s.id === me.id ? `<button class="ghost" data-stand="${i}">Levantarme</button>` : ""}
+        <strong>${s ? esc(s.name) + (s.id === state.me.id ? " (tú)" : "") : "Libre"}</strong>
+        ${!s ? `<button data-sit="${i}">Sentarme aquí</button>` : s.id === state.me.id ? `<button class="ghost" data-stand="${i}">Levantarme</button>` : ""}
       </div>`).join("")}</div>
-      ${!me.name ? `<label for="nm2">Tu nombre</label><input type="text" id="nm2" maxlength="16" placeholder="Ej. Rodrigo">` : ""}
+      ${!state.me.name ? `<label for="nm2">Tu nombre</label><input type="text" id="nm2" maxlength="16" placeholder="Ej. Rodrigo">` : ""}
       <div class="row">
         <button class="primary" id="start" ${full && seat >= 0 ? "" : "disabled"}>Repartir</button>
         ${isHost ? `<button class="ghost" id="del">Borrar mesa</button>` : ""}
       </div>
       <p class="hint">${full ? "Todos sentados. Cualquier jugador puede repartir." : "Faltan jugadores."}</p>
     </section>
-    <p class="err">${esc(view.err)}</p>`;
+    <p class="err">${esc(state.view.err)}</p>`;
   $("#back").onclick = leave;
-  $("#nm2")?.addEventListener("input", (e) => { me.name = e.target.value.trim(); ls.set("dom.name", me.name); });
+  $("#nm2")?.addEventListener("input", (e) => actions.setName(e.target.value));
   app.querySelectorAll("[data-sit]").forEach((b) => b.onclick = () => {
-    if (!me.name) { view.err = "Escribe tu nombre primero."; return render(); }
+    if (!state.me.name) return actions.setError("Escribe tu nombre primero.");
     const i = +b.dataset.sit;
     mutate((s) => { if (s.status !== "lobby") throw new Error("La partida ya empezó."); if (s.seats[i]) throw new Error("Ese asiento ya lo tomaron.");
-      s.seats = s.seats.map((x) => (x && x.id === me.id ? null : x)); s.seats[i] = { id: me.id, name: me.name }; s.v++; return s; });
+      s.seats = s.seats.map((x) => (x && x.id === state.me.id ? null : x)); s.seats[i] = { id: state.me.id, name: state.me.name }; s.v++; return s; });
   });
-  app.querySelectorAll("[data-stand]").forEach((b) => b.onclick = () => mutate((s) => { s.seats = s.seats.map((x) => (x && x.id === me.id ? null : x)); s.v++; return s; }));
+  app.querySelectorAll("[data-stand]").forEach((b) => b.onclick = () => mutate((s) => { s.seats = s.seats.map((x) => (x && x.id === state.me.id ? null : x)); s.v++; return s; }));
   $("#start").onclick = () => mutate((s) => { if (s.status !== "lobby" || !s.seats.every(Boolean)) throw new Error("Faltan jugadores."); return E.deal(s); });
   $("#del")?.addEventListener("click", () => { if ($("#del").dataset.armed) { mutate(() => null).then(leave); } else { $("#del").dataset.armed = "1"; $("#del").textContent = "Toca otra vez para borrar"; } });
   $("#modal").innerHTML = "";
@@ -860,11 +659,10 @@ function renderSeats(app, st, seat) {
 function renderResult(st, seat) {
   const m = $("#modal");
   if (!(st.status === "handover" || st.status === "gameover") || !st.result) {
-    if (view.advice) return renderAdvice(st, seat);
+    if (state.view.advice) return renderAdvice(st, seat);
     return renderTracker(st, seat);
   }
-  view.advice = null;
-  view.track = null;
+  actions.setView({ advice: null, track: null }, false);
   const r = st.result, c = st.config, labels = scoreLabels(st);
   const title = r.type === "domino" ? `${E.nameOf(st, r.seat)} dominó` : "Juego cerrado";
   const winTxt = c.teams ? `Gana la mano: ${labels[r.winner]}` : `Gana la mano: ${E.nameOf(st, r.winner)}`;
@@ -887,9 +685,10 @@ function renderResult(st, seat) {
   $("#exit").onclick = leave;
 }
 
-window.addEventListener("resize", () => { if (view.screen === "table") render(); });
+subscribe((what) => (what === "list" ? renderTables() : render()));
+window.addEventListener("resize", () => { if (state.view.screen === "table") render(); });
 render();
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initCaps); else initCaps();
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", actions.start); else actions.start();
 })();
 </script>
 

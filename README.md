@@ -96,7 +96,7 @@ No dejes la base en *modo de prueba*: en ese modo cualquiera puede leer o borrar
 
 ```
 myDomino/
-├── index.html          # interfaz (JavaScript)
+├── index.html          # interfaz: dibujo y eventos (JavaScript)
 ├── styles/
 │   ├── reset.css       # reset mínimo de la página
 │   ├── tokens.css      # colores, tipografía y tema claro/oscuro
@@ -122,15 +122,22 @@ myDomino/
 │   │   ├── bots.js        # plan de salida y jugada de cada nivel
 │   │   ├── advice.js      # consejo: qué tiraría cada nivel y por qué
 │   │   └── index.js       # API de la IA
-│   └── services/       # todo lo que toca el exterior
-│       ├── firebase.js    # arranque, invitado, entrar con Google, salir
-│       ├── tables-repo.js # mesas en Firestore: guardar, escuchar, cambios con transacción
-│       ├── prefs.js       # preferencias del dispositivo en localStorage
-│       └── index.js       # API de servicios
+│   ├── services/       # todo lo que toca el exterior
+│   │   ├── firebase.js    # arranque, invitado, entrar con Google, salir
+│   │   ├── tables-repo.js # mesas en Firestore: guardar, escuchar, cambios con transacción
+│   │   ├── prefs.js       # preferencias del dispositivo en localStorage
+│   │   └── index.js       # API de servicios
+│   └── app/            # estado de la app y lo que lo cambia
+│       ├── store.js       # el estado (pantalla, mesa abierta, modo, tu mano, notas…) y quién lo escucha
+│       ├── actions.js     # todo lo que cambia el estado: mesas, práctica, preferencias, consejo…
+│       ├── practice.js    # la compu en modo práctica
+│       ├── clock.js       # reloj de turno
+│       └── index.js       # API de la app
 ├── tests/
 │   ├── engine.test.js  # pruebas del motor
 │   ├── ai.test.js      # pruebas de la IA
 │   ├── services.test.js # pruebas de los servicios
+│   ├── app.test.js     # pruebas del estado y las acciones
 │   └── fakes/          # Firebase de mentira para las pruebas
 ├── package.json        # solo para correr las pruebas
 ├── DESIGN.md           # diseño de la estructura modular
@@ -140,8 +147,7 @@ myDomino/
 Dentro de `index.html` el JavaScript está organizado en estas partes:
 
 - **Dibujo:** las fichas y la hilera de la mesa en SVG.
-- **Interfaz:** lobby, mesa, consejo y notas, y qué mostrar cuando cambia una mesa o falla la conexión.
-- **Estado de la app:** pantalla actual, mesa abierta, jugadores de práctica y reloj de turno (pasa a `src/app/` en la fase 5).
+- **Interfaz:** lobby, mesa, registro, consejo y resultado. Lee el estado de `src/app/` y le pide acciones; no tiene variables propias.
 
 ### Hacia dónde va
 
@@ -166,7 +172,7 @@ La migración se hace por fases, cada una en su propio PR y sin cambiar el compo
 
 ### Pruebas
 
-El motor, la IA y los servicios tienen pruebas que corren con Node (18 o más nuevo), sin instalar nada:
+El motor, la IA, los servicios y el estado de la app tienen pruebas que corren con Node (18 o más nuevo), sin instalar nada:
 
 ```bash
 npm test
@@ -175,3 +181,4 @@ npm test
 - **Motor:** el reparto en cada modo, jugadas válidas, comer y pasar, la puntuación (dominó, tranque, empates, fin de partida) y partidas completas con jugadas automáticas.
 - **IA:** los tres niveles solo hacen jugadas válidas en todos los modos, el registro respeta lo que se sabe (quién pasó), el plan de salida, el consejo y las probabilidades de la especulación. Además hay una prueba de que **la compu no hace trampa**: si se reacomodan las fichas que un jugador no puede ver, su decisión y el consejo no cambian.
 - **Servicios:** con un Firebase de mentira en memoria: guardar y leer mesas (con listas dentro de listas), la lista de mesas recientes, cambios con transacción (cancelar, borrar, jugada inválida, mesa que ya no existe), entrar como invitado, entrar con Google (ventana o redirección), salir y `localStorage` bloqueado.
+- **App:** practicar (la compu en sus asientos y con sus niveles, y juega sola cuando le toca), el reloj de turno (cuenta atrás y resuelve el turno vencido una sola vez), preferencias guardadas en el dispositivo, el orden y giro de tu mano, las notas, una mesa en línea de principio a fin con un Firebase de mentira, entrar con Google y el consejo.
