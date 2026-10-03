@@ -2,7 +2,8 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { fakeFirebase, fakeFirestore } from "./fakes/firebase.js";
-import { ls, initFirebase, signInWithGoogle, signOut, SKIP, makeDb, watchTableList, watchTable, saveNewTable, updateTable } from "../src/services/index.js";
+import { _resetLoaderForTests } from "../src/services/firebase.js";
+import { ls, loadFirebaseSdk, initFirebase, signInWithGoogle, signOut, SKIP, makeDb, watchTableList, watchTable, saveNewTable, updateTable } from "../src/services/index.js";
 import { newTable, deal, legalPlays, play } from "../src/engine/index.js";
 
 // Los servicios corren en el navegador; aquí `window` es el objeto global de Node
@@ -124,11 +125,53 @@ test("el cambio recibe una copia: modificarla no toca lo guardado si se cancela"
 let fb;
 beforeEach(() => { delete globalThis.firebase; });
 
-test("sin Firebase o sin configuración, initFirebase truena (el juego sigue en modo práctica)", async () => {
-  await assert.rejects(initFirebase(() => {}, { projectId: "x" }), /sin config/);
-  fb = fakeFirebase(); globalThis.firebase = fb.firebase;
-  await assert.rejects(initFirebase(() => {}, {}), /sin config/);
-  await assert.rejects(initFirebase(() => {}, undefined), /sin config/);
+// document de mentira: guarda los <script> que se agregan y deja decidir si cargan o fallan
+function fakeDocument() {
+  _resetLoaderForTests();
+  const scripts = [];
+  return { scripts, createElement: () => ({}), head: { appendChild: (s) => scripts.push(s) } };
+}
+
+test("sin configuración, initFirebase truena sin cargar nada (el juego sigue en modo práctica)", async () => {
+  globalThis.document = fakeDocument();
+  try {
+    await assert.rejects(initFirebase(() => {}, {}), /sin config/);
+    await assert.rejects(initFirebase(() => {}, undefined), /sin config/);
+    assert.equal(document.scripts.length, 0);
+  } finally { delete globalThis.document; }
+});
+
+test("si el CDN no responde, initFirebase truena (modo práctica) y luego se puede reintentar", async () => {
+  globalThis.document = fakeDocument();
+  try {
+    const p = initFirebase(() => {}, { projectId: "x" });
+    document.scripts[1].onerror();
+    await assert.rejects(p, /No se pudo cargar firebase-auth-compat\.js/);
+    loadFirebaseSdk();
+    assert.equal(document.scripts.length, 6, "reintenta");
+  } finally { delete globalThis.document; }
+});
+
+test("el SDK se carga del CDN después de dibujar: tres scripts en paralelo que corren en orden", async () => {
+  globalThis.document = fakeDocument();
+  try {
+    const p = loadFirebaseSdk(), p2 = loadFirebaseSdk();
+    assert.deepEqual(document.scripts.map((x) => x.src.split("/").pop()), ["firebase-app-compat.js", "firebase-auth-compat.js", "firebase-firestore-compat.js"]);
+    assert.ok(document.scripts.every((x) => x.src.startsWith("https://www.gstatic.com/firebasejs/10.12.2/") && x.async === false));
+    document.scripts.forEach((x) => x.onload());
+    await p; await p2;
+    assert.equal(document.scripts.length, 3, "no se carga dos veces");
+  } finally { delete globalThis.document; }
+});
+
+test("si el SDK cargó pero no dejó `firebase`, initFirebase truena", async () => {
+  globalThis.document = fakeDocument();
+  try {
+    const p = initFirebase(() => {}, { projectId: "x" });
+    await Promise.resolve();
+    document.scripts.forEach((x) => x.onload());
+    await assert.rejects(p, /sin config/);
+  } finally { delete globalThis.document; }
 });
 
 test("sin sesión, entra como invitado y avisa del usuario una vez como 'primero'", async () => {

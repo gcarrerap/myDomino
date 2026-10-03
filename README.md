@@ -87,7 +87,7 @@ No dejes la base en *modo de prueba*: en ese modo cualquiera puede leer o borrar
 ## Stack
 
 - HTML, CSS y JavaScript (módulos ES nativos), sin frameworks ni proceso de compilación
-- Firebase 10.12 (SDK *compat*): App, Authentication (anónimo y Google) y Cloud Firestore
+- Firebase 10.12 (SDK *compat*, cargado del CDN después de dibujar la página): App, Authentication (anónimo y Google) y Cloud Firestore
 - Tipografías: Alfa Slab One y Nunito Sans (Google Fonts)
 
 ## Arquitectura
@@ -109,7 +109,7 @@ El detalle (reglas de dependencia, decisiones, cómo se hizo la migración y pen
 
 ```
 myDomino/
-├── index.html          # esqueleto de la página: carga los estilos, Firebase y src/main.js
+├── index.html          # esqueleto de la página: carga los estilos, la configuración y src/main.js
 ├── styles/
 │   ├── reset.css       # reset mínimo de la página
 │   ├── tokens.css      # colores, tipografía y tema claro/oscuro
@@ -138,7 +138,7 @@ myDomino/
 │   │   ├── worker.js      # corre lo pesado (compu Avanzada, consejo) en un hilo aparte
 │   │   └── index.js       # API de la IA
 │   ├── services/       # todo lo que toca el exterior
-│   │   ├── firebase.js    # arranque, invitado, entrar con Google, salir
+│   │   ├── firebase.js    # carga Firebase sin frenar la página; invitado, entrar con Google, salir
 │   │   ├── tables-repo.js # mesas en Firestore: guardar, escuchar, cambios con transacción
 │   │   ├── prefs.js       # preferencias del dispositivo en localStorage
 │   │   └── index.js       # API de servicios
@@ -179,6 +179,6 @@ npm test
 
 - **Motor:** el reparto en cada modo, jugadas válidas, comer y pasar, la puntuación (dominó, tranque, empates, fin de partida) y partidas completas con jugadas automáticas.
 - **IA:** los tres niveles solo hacen jugadas válidas en todos los modos, el registro respeta lo que se sabe (quién pasó), el plan de salida, el consejo y las probabilidades de la especulación. Además hay una prueba de que **la compu no hace trampa**: si se reacomodan las fichas que un jugador no puede ver, su decisión y el consejo no cambian.
-- **Servicios:** con un Firebase de mentira en memoria: guardar y leer mesas (con listas dentro de listas), la lista de mesas recientes, cambios con transacción (cancelar, borrar, jugada inválida, mesa que ya no existe), entrar como invitado, entrar con Google (ventana o redirección), salir y `localStorage` bloqueado.
+- **Servicios:** con un Firebase de mentira en memoria: guardar y leer mesas (con listas dentro de listas), la lista de mesas recientes, cambios con transacción (cancelar, borrar, jugada inválida, mesa que ya no existe), entrar como invitado, entrar con Google (ventana o redirección), salir y `localStorage` bloqueado. También la carga de Firebase desde el CDN: en paralelo y en orden, sin cargar dos veces, y qué pasa si el CDN no responde.
 - **App:** practicar (la compu en sus asientos y con sus niveles, y juega sola cuando le toca), el reloj de turno (cuenta atrás y resuelve el turno vencido una sola vez), preferencias guardadas en el dispositivo, el orden y giro de tu mano, las notas, una mesa en línea de principio a fin con un Firebase de mentira, entrar con Google y el consejo.
 - **IA en un hilo aparte:** el worker calcula la jugada y el consejo; el cliente reparte cada respuesta a quien la pidió y, si el worker no carga o el navegador no lo permite, calcula en el hilo principal. Mientras la compu piensa no se programa otra jugada; si sales de la mesa o cambia el turno, el resultado se descarta.

@@ -46,7 +46,7 @@ Esta es la estructura final, tal como quedó al terminar la fase 6 (las diferenc
 
 ```
 myDomino/
-├── index.html                 # solo el esqueleto: <div id="app">, CSS y <script type="module" src="src/main.js">
+├── index.html                 # solo el esqueleto: <div id="app">, CSS, src/config.js y <script type="module" src="src/main.js">
 ├── styles/
 │   ├── reset.css              # reset mínimo de la página
 │   ├── tokens.css             # variables de color y tipografía, tema claro/oscuro
@@ -78,7 +78,7 @@ myDomino/
 │   │   └── index.js           # reexporta la API de la IA
 │   │
 │   ├── services/              # todo lo que toca el exterior
-│   │   ├── firebase.js        # initFirebase (anónimo), signInWithGoogle, signOut
+│   │   ├── firebase.js        # loadFirebaseSdk (carga el SDK del CDN después de dibujar), initFirebase (anónimo), signInWithGoogle, signOut
 │   │   ├── tables-repo.js     # makeDb, watchTableList, watchTable, saveNewTable, updateTable, SKIP
 │   │   ├── prefs.js           # ls: wrapper seguro de localStorage
 │   │   └── index.js           # reexporta la API de servicios
@@ -152,7 +152,7 @@ Reglas concretas:
 
 **Módulos ES nativos, sin bundler.** Mantiene el despliegue actual (subir archivos y listo) y no agrega `node_modules` para correr el juego. Se reconsidera solo si el número de archivos llega a afectar la carga; HTTP/2 en GitHub Pages lo hace poco probable.
 
-**Firebase: primero sin cambios, luego SDK modular.** En las primeras fases se siguen cargando los scripts *compat* como globales, encapsulados en `services/firebase.js`, para que la migración no cambie comportamiento. Después, en un PR aparte, se puede pasar a los imports modulares desde el CDN (`https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js`, etc.), que pesan menos.
+**Firebase: SDK compat, cargado después de dibujar (fase 7b).** El plan original era pasar al SDK modular porque "pesa menos", pero eso solo es cierto con un empaquetador que quite lo que no se usa, y este proyecto no tiene paso de compilación. Medido con los archivos del CDN de la versión 10.12.2 (app + auth + firestore): compat 512 KB (150 KB comprimido) contra modular 689 KB (173 KB comprimido), es decir, el modular pesa ~15% **más**. Se queda el compat, encapsulado en `services/firebase.js`. Lo que sí costaba era que los tres scripts estaban en el `<head>` y bloqueaban la página: nada se veía, ni la práctica, hasta descargar Firebase. Ahora `services/firebase.js` agrega esos scripts después de dibujar (en paralelo y en orden), así el lobby y la práctica aparecen de inmediato aunque el CDN sea lento. Si más adelante conviene el SDK modular (por soporte a largo plazo), el cambio queda contenido en `services/`.
 
 **Store mínimo hecho a mano.** Un objeto con `get()`, `set(patch)` y `subscribe(fn)` alcanza; no hace falta un framework. `render()` se suscribe al store.
 
@@ -174,7 +174,7 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 | 5 ✅ | Introducir `app/store.js` y `app/actions.js`; quitar las variables globales de la UI. Además `app/practice.js` (bots de práctica) y `app/clock.js` (reloj de turno). La interfaz ya no tiene variables globales: lee `state`, se suscribe con `subscribe` y pide acciones. Cuando solo cambia la lista de mesas, se redibuja solo la lista (como antes), para no interrumpir a quien está escribiendo su nombre. Se borró el código muerto que habría que mover al store (`userCap`, `sampleCap`, `isOwnerView`, `sleep`, `renderPending`, `cycleNote`). | medio: es el cambio más grande |
 | 6 ✅ | Dividir la UI en `ui/screens` y `ui/components`; que la UI importe del motor y la IA en vez de usar `window.E`, y quitar el `<script>` que lo arma. `index.html` queda en 20 líneas y carga `src/main.js`. Diferencias con la propuesta: `labels.js` reúne textos compartidos por lobby, mesa y registro; `screens/seats.js` y `components/result.js` son archivos propios; el manejo de tu mano (tocar, girar, arrastrar) se queda dentro de `screens/table.js` porque depende de las jugadas válidas que calcula esa pantalla; `askAdvice` y las notas ya vivían en `app/actions.js` desde la fase 5. Para no crear ciclos, las pantallas piden redibujar con `notify()` de `app/` en lugar de importar `render`. | bajo |
 | 7a ✅ | IA en Web Worker: `ai/worker.js` y `app/ai-client.js`; la compu Avanzada y el consejo se calculan en un hilo aparte (ver §5). En una partida de práctica con las tres compus en Avanzado y pidiendo consejo cada turno, el hilo de la pantalla pasó de 21 bloqueos (el más largo de 817 ms, 6.6 s en total) a ninguno. Se borraron los estilos sobrantes de una tarjeta "Opus" que ya no existía. | medio |
-| 7b (opcional) | SDK modular de Firebase. | medio |
+| 7b ✅ | En lugar del SDK modular (que desde el CDN pesa más, ver §5): cargar el SDK compat después de dibujar, no en el `<head>`. Con el CDN tardando 3 s, el lobby aparece a los 0.3 s en vez de a los 3.5 s; el modo en línea queda listo ~0.15 s después que antes. | bajo |
 
 ### Pendientes conocidos (fuera de las fases)
 
