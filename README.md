@@ -96,7 +96,7 @@ No dejes la base en *modo de prueba*: en ese modo cualquiera puede leer o borrar
 
 ```
 myDomino/
-├── index.html          # bots, consejo, interfaz y sincronización (JavaScript)
+├── index.html          # interfaz y sincronización (JavaScript)
 ├── styles/
 │   ├── reset.css       # reset mínimo de la página
 │   ├── tokens.css      # colores, tipografía y tema claro/oscuro
@@ -105,16 +105,26 @@ myDomino/
 │   └── table.css       # mesa, registro, consejo, tu mano, resultado y menú
 ├── src/
 │   ├── config.js       # configuración de Firebase
-│   └── engine/         # reglas del dominó (módulos ES, funciones puras)
-│       ├── tiles.js    # fichas: notación, puntos, juego completo, revolver
-│       ├── config.js   # modos de juego válidos, pozo, equipos, meta de 100
-│       ├── table.js    # mesa nueva, reparto, turnos, registro de jugadas
-│       ├── moves.js    # jugadas válidas, tirar, comer, pasar
-│       ├── scoring.js  # fin de mano y puntos en contra
-│       ├── timing.js   # tiempo por turno y jugada automática
-│       └── index.js    # API del motor
+│   ├── engine/         # reglas del dominó (módulos ES, funciones puras)
+│   │   ├── tiles.js    # fichas: notación, puntos, juego completo, revolver
+│   │   ├── config.js   # modos de juego válidos, pozo, equipos, meta de 100
+│   │   ├── table.js    # mesa nueva, reparto, turnos, registro de jugadas
+│   │   ├── moves.js    # jugadas válidas, tirar, comer, pasar
+│   │   ├── scoring.js  # fin de mano y puntos en contra
+│   │   ├── timing.js   # tiempo por turno y jugada automática
+│   │   └── index.js    # API del motor
+│   └── ai/             # jugadores de la compu y consejo (módulos ES, funciones puras)
+│       ├── tune.js        # niveles y parámetros
+│       ├── heuristics.js  # criterios de jugada compartidos
+│       ├── deduce.js      # registro: qué fichas puede tener cada quien
+│       ├── speculate.js   # leer los tiros ajenos como decisiones (probabilidades)
+│       ├── search.js      # simulaciones Monte Carlo
+│       ├── bots.js        # plan de salida y jugada de cada nivel
+│       ├── advice.js      # consejo: qué tiraría cada nivel y por qué
+│       └── index.js       # API de la IA
 ├── tests/
-│   └── engine.test.js  # pruebas del motor
+│   ├── engine.test.js  # pruebas del motor
+│   └── ai.test.js      # pruebas de la IA
 ├── package.json        # solo para correr las pruebas
 ├── DESIGN.md           # diseño de la estructura modular
 └── README.md
@@ -122,7 +132,6 @@ myDomino/
 
 Dentro de `index.html` el JavaScript está organizado en estas partes:
 
-- **Bots:** deducción de fichas, simulaciones Monte Carlo y heurísticas por nivel.
 - **Dibujo:** las fichas y la hilera de la mesa en SVG.
 - **Interfaz:** lobby, mesa, consejo y notas.
 - **Firebase:** autenticación y lectura/escritura de mesas en Firestore. Cada mesa se guarda como JSON en un solo documento.
@@ -150,10 +159,11 @@ La migración se hace por fases, cada una en su propio PR y sin cambiar el compo
 
 ### Pruebas
 
-El motor tiene pruebas que corren con Node (18 o más nuevo), sin instalar nada:
+El motor y la IA tienen pruebas que corren con Node (18 o más nuevo), sin instalar nada:
 
 ```bash
 npm test
 ```
 
-Cubren el reparto en cada modo, jugadas válidas, comer y pasar, la puntuación (dominó, tranque, empates, fin de partida) y partidas completas con jugadas automáticas.
+- **Motor:** el reparto en cada modo, jugadas válidas, comer y pasar, la puntuación (dominó, tranque, empates, fin de partida) y partidas completas con jugadas automáticas.
+- **IA:** los tres niveles solo hacen jugadas válidas en todos los modos, el registro respeta lo que se sabe (quién pasó), el plan de salida, el consejo y las probabilidades de la especulación. Además hay una prueba de que **la compu no hace trampa**: si se reacomodan las fichas que un jugador no puede ver, su decisión y el consejo no cambian.
