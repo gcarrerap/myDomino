@@ -66,11 +66,13 @@ myDomino/
 │   │
 │   ├── ai/                    # jugadores de la compu y consejo — puro, probado con Node
 │   │   ├── tune.js            # TUNE, LEVELS, NOISE
-│   │   ├── deduce.js          # deduce, tracker (qué fichas puede tener cada quien)
+│   │   ├── heuristics.js      # newEnds, has, heurScore, optionsAt (criterios compartidos)
+│   │   ├── deduce.js          # deduce, tracker, sampleAssign (qué fichas puede tener cada quien)
 │   │   ├── speculate.js       # inferenceEvents, logLikelihood, weightedAssigns, speculate, explainTile
-│   │   ├── search.js          # sampleWorld, rollout, worldsFor, monteCarloMove
-│   │   ├── bots.js            # heurScore, openingPlan, botMove (por nivel)
-│   │   └── advice.js          # advise
+│   │   ├── search.js          # sampleWorld, rollout, rolloutFull, worldsFor, monteCarloMove
+│   │   ├── bots.js            # openingPlan, botMove (por nivel)
+│   │   ├── advice.js          # advise
+│   │   └── index.js           # reexporta la API de la IA
 │   │
 │   ├── services/              # todo lo que toca el exterior
 │   │   ├── firebase.js        # initializeApp, auth (anónimo + Google), applyUser
@@ -130,7 +132,8 @@ Los nombres de función son los que ya existen hoy; la migración los mueve, no 
 Reglas concretas:
 
 - `engine/` y `ai/` no usan `document`, `window`, `localStorage`, `firebase` ni `Date.now()` directo. El tiempo entra como parámetro (`now`) con valor por defecto, igual que ya se hace con `rnd`. *Pendiente:* en la fase 2 el motor se movió sin cambios y todavía llama a `Date.now()` en `newTable`, `deal`, `play` y `pass`; inyectarlo es un cambio de firma que va en su propio PR.
-- Ningún módulo exporta variables mutables. El estado compartido vive en `app/store.js` y se cambia solo con sus funciones.
+- **Única dependencia circular, a propósito:** `bots.js` ↔ `search.js`. El nivel Avanzado (`botMove`) simula manos completas (`monteCarloMove` → `rolloutFull`), y esas simulaciones juegan con el nivel Intermedio, que es el mismo `botMove`. Es seguro en módulos ES porque son declaraciones de función y ninguna se llama al cargar.
+- Ningún módulo exporta variables mutables. El estado compartido vive en `app/store.js` y se cambia solo con sus funciones. *Excepción pendiente:* `ai/tune.js` exporta `NOISE`, un objeto que `rolloutFull` apaga mientras simula para que el nivel Intermedio juegue sin azar, y lo vuelve a prender al terminar. Se movió tal cual; lo limpio es pasar el ruido como parámetro de `botMove`, en un PR aparte.
 - La UI nunca llama a Firestore: pide `actions.play(tile, side)` y `actions` decide si es práctica (local) o en línea (transacción).
 
 ## 5. Decisiones
@@ -154,7 +157,7 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 | 0 ✅ | `DESIGN.md` y actualización del README | ninguno |
 | 1 ✅ | Sacar CSS a `styles/` y la configuración a `src/config.js`. El JS sigue igual. | bajo |
 | 2 ✅ | Pasar el motor a `src/engine/` como módulos ES y agregar `tests/engine.test.js`. Los dos `<script>` de `index.html` pasan a ser módulos: el primero importa el motor y arma `window.E` con la IA que todavía vive ahí; el segundo es la UI. Desde aquí el juego ya no abre con doble clic. | bajo: el motor ya es puro |
-| 3 | Pasar bots, especulación y consejo a `src/ai/` con `tests/ai.test.js`. | bajo |
+| 3 ✅ | Pasar bots, especulación y consejo a `src/ai/` con `tests/ai.test.js`. El primer `<script>` de `index.html` queda solo para armar `window.E`. Se agregó `heuristics.js` para que `heurScore` (que usan la especulación y los bots) no cree un ciclo entre tres archivos. | bajo |
 | 4 | Pasar Firebase, `localStorage` y `mutate` a `src/services/`. | medio: auth y transacciones |
 | 5 | Introducir `app/store.js` y `app/actions.js`; quitar las variables globales de la UI. | medio: es el cambio más grande |
 | 6 | Dividir la UI en `ui/screens` y `ui/components`; borrar código muerto. | bajo |
