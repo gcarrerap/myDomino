@@ -67,7 +67,10 @@ test("en práctica, mutate aplica la jugada; si es inválida, deja la mesa igual
   assert.equal(state.tableState.hand.board.length, 1);
 });
 
-test("la compu juega sola cuando le toca", () => {
+// La IA corre en un hilo aparte (o, sin Worker como en Node, en una promesa): hay que dejar que termine
+const settle = () => new Promise((r) => setImmediate(r));
+
+test("la compu juega sola cuando le toca", async () => {
   const timers = mock.timers; timers.enable({ apis: ["setTimeout"] });
   try {
     state.config = { n: 2, teams: false, per: 14, timer: false };
@@ -78,7 +81,9 @@ test("la compu juega sola cuando le toca", () => {
     scheduleBot();
     assert.ok(state.botTimer);
     timers.tick(900);
+    await settle();
     assert.equal(state.tableState.hand.board.length, 1, "la compu salió");
+    assert.equal(state.botTimer, null);
     assert.equal(state.tableState.hand.turn, 0);
   } finally { timers.reset(); }
 });
@@ -257,7 +262,7 @@ test("el consejo se calcula para el turno en curso", async () => {
     do { actions.leave(); actions.startPractice(); } while (state.tableState.hand.turn !== 0 && ++tries < 50);
     actions.askAdvice(0);
     assert.equal(state.view.advice.data, null);
-    timers.tick(50);
+    await settle();
     const d = state.view.advice.data;
     assert.ok(d && !d.error);
     assert.equal(d.levels.length, 3);

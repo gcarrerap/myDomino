@@ -56,11 +56,6 @@ span.trk-t{cursor:default;padding:1px}
 .adv-card ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14px}
 .adv-play{align-self:flex-start;min-height:36px;padding:6px 12px}
 .adv-agree{margin:0;font-weight:800;color:var(--ok)}
-.adv-card.opus{border-color:var(--accent);border-width:2px}
-.lvtag.opus-lv{background:var(--accent);color:var(--accent-fg)}
-.opus-wait{margin:0;font-weight:700;animation:pulse 1.4s ease-in-out infinite}
-@keyframes pulse{50%{opacity:.45}}
-@media (prefers-reduced-motion:reduce){.opus-wait{animation:none}}
 .trk-t.played{border-color:var(--gold);background:var(--gold);cursor:default}
 .trk-t.played svg rect{fill:var(--gold-tile)}
 .trk-played{margin:0;font-weight:700}

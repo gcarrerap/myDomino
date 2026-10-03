@@ -1,10 +1,10 @@
 // Casos de uso: todo lo que cambia el estado de la app. Cada acción deja el estado listo y llama a notify();
 // la interfaz solo dibuja y traduce clics en estas acciones.
 import { newTable, deal, pts } from "../engine/index.js";
-import { advise } from "../ai/index.js";
 import { ls, initFirebase, signInWithGoogle, signOut, SKIP, makeDb, watchTableList, watchTable, saveNewTable, updateTable } from "../services/index.js";
 import { state, notify, isGoogle, turnKey } from "./store.js";
 import { BOT_NAMES } from "./practice.js";
+import { runAI } from "./ai-client.js";
 
 // ---------- Sesión ----------
 function applyUser(u) {
@@ -141,10 +141,11 @@ export function askAdvice(seat) {
   const st = state.tableState; if (!st) return;
   const key = turnKey(st);
   state.view.track = null; state.view.advice = { key, data: null }; notify();
-  setTimeout(() => {
+  // Se calcula en un hilo aparte: mientras tanto se ve "Pensando…" y el reloj sigue corriendo
+  runAI("advise", st, seat).then((data) => data, () => ({ error: true })).then((data) => {
     const view = state.view;
-    if (!view.advice || view.advice.key !== key || turnKey(state.tableState) !== key) return;
-    try { view.advice.data = advise(state.tableState, seat); } catch (e) { view.advice.data = { error: true }; }
+    if (!view.advice || view.advice.key !== key || turnKey(state.tableState) !== key) return; // ya cambió el turno o lo cerraste
+    view.advice.data = data;
     notify();
-  }, 40);
+  });
 }

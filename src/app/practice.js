@@ -1,7 +1,8 @@
 // Jugadores simulados en modo práctica: deciden y juegan con un pequeño retraso, como una persona.
 import { legalPlays, play, draw, pass, limitMs } from "../engine/index.js";
-import { openingPlan, botMove } from "../ai/index.js";
+import { openingPlan } from "../ai/index.js";
 import { state, notify, timerOn, turnKey } from "./store.js";
+import { runAI } from "./ai-client.js";
 
 export const BOT_NAMES = ["Lupe", "Toño", "Chuy"];
 
@@ -23,22 +24,33 @@ export function botActor(st) {
   return cands[0] || null;
 }
 // Programa la siguiente jugada de la compu, si le toca a alguna. Se llama cada vez que se dibuja la mesa.
+// La jugada se calcula en un hilo aparte (ai-client.js). Mientras piensa, state.botTimer sigue ocupado para que no
+// se programe otra; si sales de la mesa (leave lo limpia) o la mesa cambia mientras tanto, el resultado se descarta.
 export function scheduleBot() {
   if (!state.view.practice || state.botTimer) return;
   const act = botActor(state.tableState); if (!act) return;
   const key = turnKey(state.tableState);
-  state.botTimer = setTimeout(() => {
-    state.botTimer = null;
+  const id = setTimeout(async () => {
+    if (state.botTimer !== id) return; // se canceló
     const st = state.tableState;
-    if (turnKey(st) !== key) { scheduleBot(); return; } // cambió la mesa mientras esperaba: vuelve a decidir
-    const a = botActor(st); if (!state.view.practice || !a) return;
-    if (a.delay > 50) { scheduleBot(); return; } // todavía no le toca decidir
+    if (turnKey(st) !== key) { state.botTimer = null; scheduleBot(); return; } // cambió la mesa mientras esperaba: vuelve a decidir
+    const a = botActor(st); if (!state.view.practice || !a) { state.botTimer = null; return; }
+    if (a.delay > 50) { state.botTimer = null; scheduleBot(); return; } // todavía no le toca decidir
+    let next;
     if (a.tile && legalPlays(st, a.seat).some((p) => p.tile === a.tile)) {
-      state.tableState = play(st, a.seat, a.tile, "X");
+      next = play(st, a.seat, a.tile, "X");
     } else {
-      const m = botMove(st, a.seat, (st.seats[a.seat] && st.seats[a.seat].level) || 1); if (!m) return;
-      state.tableState = m.type === "play" ? play(st, a.seat, m.tile, m.side) : m.type === "draw" ? draw(st, a.seat) : pass(st, a.seat);
+      let m;
+      try { m = await runAI("botMove", st, a.seat, (st.seats[a.seat] && st.seats[a.seat].level) || 1); }
+      catch (e) { console.warn("La compu no pudo decidir:", e); m = null; }
+      if (state.botTimer !== id) return; // saliste de la mesa mientras pensaba
+      if (state.tableState !== st) { state.botTimer = null; scheduleBot(); return; } // la mesa cambió mientras pensaba
+      if (!m) { state.botTimer = null; return; }
+      next = m.type === "play" ? play(st, a.seat, m.tile, m.side) : m.type === "draw" ? draw(st, a.seat) : pass(st, a.seat);
     }
+    state.botTimer = null;
+    state.tableState = next;
     notify();
   }, act.delay !== undefined ? act.delay + 30 : (state.tableState.hand.drew ? 450 : 850));
+  state.botTimer = id;
 }
