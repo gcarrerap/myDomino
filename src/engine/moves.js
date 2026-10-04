@@ -49,7 +49,7 @@ export function play(st, seat, tile, side) {
   if (!h.played) h.played = h.hands.map(() => []);
   h.played[seat].push(tile);
   if (!h.history) h.history = [];
-  h.history.push({ s: seat, a: "play", tile, side: lp.side, ends: [h.board[0][0], h.board[h.board.length - 1][1]], forced: lp.side === "X" && !!st.hand.firstReq });
+  h.history.push({ s: seat, a: "play", tile, side: lp.side, ends: [h.board[0][0], h.board[h.board.length - 1][1]], forced: lp.side === "X" && !!st.hand.firstReq, t: Date.now() });
   resolvePending(h, seat);
   h.passes = 0; h.drew = 0;
   let s2 = { ...st, hand: h, log: pushLog(st.log, `${nameOf(st, seat)} tiró ${tile}`), v: st.v + 1 };
@@ -68,7 +68,7 @@ export function draw(st, seat) {
   h.lacks[seat] = [];
   h.pend = { seat, ends: [...new Set(ends(h))] };
   if (!h.history) h.history = [];
-  h.history.push({ s: seat, a: "draw", ends: ends(h) });
+  h.history.push({ s: seat, a: "draw", ends: ends(h), t: Date.now() });
   return { ...st, hand: h, log: pushLog(st.log, `${nameOf(st, seat)} comió`), v: st.v + 1 };
 }
 
@@ -79,7 +79,7 @@ export function pass(st, seat) {
   resolvePending(h, seat);
   h.lacks[seat] = [...new Set([...h.lacks[seat], ...ends(h)])].sort();
   if (!h.history) h.history = [];
-  h.history.push({ s: seat, a: "pass", ends: ends(h) });
+  h.history.push({ s: seat, a: "pass", ends: ends(h), t: Date.now() });
   let s2 = { ...st, hand: h, log: pushLog(st.log, `${nameOf(st, seat)} pasó`), v: st.v + 1 };
   if (h.passes >= st.config.n) return endHand(s2, { type: "cerrado" });
   h.turn = nextSeat(st, seat); h.since = Date.now();

@@ -13,7 +13,9 @@ export const limitMs = (h) => (h && h.turn === null && !h.board.length ? 15000 :
 export function autoMove(st, rnd = Math.random) {
   if (st.status !== "playing") return st;
   const h = st.hand;
-  const markAuto = (s2) => { const hh = s2.hand; if (hh && hh.history && hh.history.length) hh.history[hh.history.length - 1].auto = true; return s2; };
+  // Marca como automáticas todas las acciones que hizo el reloj (también las veces que comió antes de tirar)
+  const n0 = (h && h.history ? h.history.length : 0);
+  const markAuto = (s2) => { const hh = s2.hand; if (hh && hh.history) for (let i = n0; i < hh.history.length; i++) hh.history[i].auto = true; return s2; };
   const tag = (s2, seat) => markAuto({ ...s2, log: pushLog(s2.log.slice(0, -1), `Se acabó el tiempo de ${nameOf(st, seat)}`).concat(s2.log.slice(-1)).slice(-12) }) ;
   if (h.turn === null && !h.board.length) {
     let best = null, seat = h.openers[0];

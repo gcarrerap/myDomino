@@ -75,14 +75,24 @@ El repo trae la configuración del proyecto `dominomx`. Para usar uno tuyo:
 
 ### Reglas de seguridad
 
-La `apiKey` de una app web de Firebase no es secreta, así que lo que protege los datos son las reglas de Firestore. Como mínimo, exige que el usuario haya iniciado sesión (los invitados entran de forma anónima) y limita el acceso a la colección `mesas`:
+La `apiKey` de una app web de Firebase no es secreta, así que lo que protege los datos son las reglas de Firestore. Como mínimo, exige que el usuario haya iniciado sesión (los invitados entran de forma anónima) y limita el acceso a las colecciones `mesas` y `manos`:
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Mesas en línea: cualquier jugador con sesión (los invitados entran de forma anónima)
     match /mesas/{mesa} {
       allow read, write: if request.auth != null;
+    }
+    // Manos grabadas (#25): los teléfonos solo pueden CREAR. Como el id de cada mano es fijo, si dos teléfonos
+    // graban la misma mano, el segundo intento es una actualización y se rechaza: nunca hay duplicados.
+    // Nadie las lee, cambia ni borra desde el juego; se leen con scripts/export-partidas.mjs (cuenta de servicio).
+    match /manos/{mano} {
+      allow create: if request.auth != null
+        && request.resource.data.json is string
+        && request.resource.data.json.size() < 200000;
+      allow read, update, delete: if false;
     }
     match /{document=**} {
       allow read, write: if false;
@@ -90,6 +100,8 @@ service cloud.firestore {
   }
 }
 ```
+
+Estas mismas reglas están en [`firestore.rules`](firestore.rules); cópialas en **Firestore → Reglas** y publícalas.
 
 No dejes la base en *modo de prueba*: en ese modo cualquiera puede leer o borrar las mesas.
 

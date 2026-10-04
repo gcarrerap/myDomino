@@ -5,3 +5,4 @@ export { newTable, deal, pushLog, nextSeat, nameOf, newGame, isEmptyTable } from
 export { ends, legalPlays, canDraw, canPass, resolvePending, play, draw, pass } from "./moves.js";
 export { endHand } from "./scoring.js";
 export { limitMs, autoMove } from "./timing.js";
+export { RECORD_VERSION, handRecordId, buildHandRecord, replayHand, groupGames } from "./record.js";
