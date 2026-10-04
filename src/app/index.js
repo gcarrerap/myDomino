@@ -3,3 +3,4 @@ export { state, subscribe, notify, isGoogle, timerOn, canReveal, mySeat, turnKey
 export * as actions from "./actions.js";
 export { BOT_NAMES, BACKUP_MS, scheduleBot, isBotSeat, botRole } from "./bots.js";
 export { tickClock } from "./clock.js";
+export { checkForUpdate, startUpdateChecks, applyUpdate } from "./updates.js";

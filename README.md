@@ -8,6 +8,7 @@ Está hecho con HTML, CSS y JavaScript en módulos, sin dependencias ni paso de 
 
 - **Multijugador en tiempo real:** creas una mesa, los demás se unen desde *Mesas abiertas* y todos ven la partida al instante.
 - **Limpieza automática:** las mesas en línea se borran solas después de un rato sin cambios: 5 minutos si no hay nadie sentado, 1 hora si hay personas sentadas pero no se ha repartido, y 6 horas sin jugadas si la partida ya empezó o terminó.
+- **Siempre la versión más reciente:** al abrir el juego se carga lo último que se publicó; si se publica algo con el juego abierto, aparece "Hay una versión nueva · Actualizar". La práctica funciona sin internet.
 - **Práctica contra la compu:** juegas solo contra bots, sin necesidad de otros jugadores.
 - **La compu en mesas en línea:** los asientos libres de una mesa en línea se pueden llenar con la compu (con su nivel), por ejemplo 2 personas contra 2 compus. A la compu la mueve el teléfono de quien está sentado en el asiento más bajo; si ese teléfono no está, el de alguien más.
 - **Tres niveles de bot:** Básico, Intermedio y Avanzado. Los bots solo usan información legítima: su propia mano, la mesa y lo que cada jugador ha tirado, comido o pasado. Nunca ven fichas ajenas.
@@ -52,6 +53,10 @@ Sírvelo con cualquier servidor estático. Abrirlo con doble clic (`file://`) no
 python3 -m http.server 8000
 # abre http://localhost:8000
 ```
+
+### Publicar una versión nueva
+
+Cada vez que publiques un cambio del juego, **cambia el número en `src/version.js`** (por ejemplo, de `2026-10-04.1` a `2026-10-04.2`). Así, quien tenga el juego abierto verá "Hay una versión nueva · Actualizar". Aunque se te olvide, el service worker (`sw.js`) hace que al abrir o recargar el juego siempre se cargue lo último; lo único que no habría es el aviso.
 
 ## Usar tu propio proyecto de Firebase
 
@@ -112,6 +117,7 @@ El detalle (reglas de dependencia, decisiones, cómo se hizo la migración y pen
 ```
 myDomino/
 ├── index.html          # esqueleto de la página: carga los estilos, la configuración y src/main.js
+├── sw.js               # service worker: siempre la versión más reciente; práctica sin internet
 ├── styles/
 │   ├── reset.css       # reset mínimo de la página
 │   ├── tokens.css      # colores, tipografía y tema claro/oscuro
@@ -120,6 +126,7 @@ myDomino/
 │   └── table.css       # mesa, registro, consejo, tu mano, resultado y menú
 ├── src/
 │   ├── main.js         # arranque
+│   ├── version.js      # versión publicada (cámbiala en cada publicación)
 │   ├── config.js       # configuración de Firebase
 │   ├── engine/         # reglas del dominó (funciones puras)
 │   │   ├── tiles.js       # fichas: notación, puntos, juego completo, revolver
@@ -143,6 +150,7 @@ myDomino/
 │   │   ├── firebase.js    # carga Firebase sin frenar la página; invitado, entrar con Google, salir
 │   │   ├── tables-repo.js # mesas en Firestore: guardar, escuchar, cambios con transacción
 │   │   ├── prefs.js       # preferencias del dispositivo en localStorage
+│   │   ├── updates.js     # activa el service worker y lee la versión publicada
 │   │   └── index.js       # API de servicios
 │   ├── app/            # estado de la app y lo que lo cambia
 │   │   ├── store.js       # el estado (pantalla, mesa abierta, modo, tu mano, notas…) y quién lo escucha
@@ -151,6 +159,7 @@ myDomino/
 │   │   ├── clock.js       # reloj de turno
 │   │   ├── ai-client.js   # pide los cálculos pesados al hilo aparte
 │   │   ├── cleanup.js     # borra las mesas abandonadas
+│   │   ├── updates.js     # avisa cuando hay una versión nueva
 │   │   └── index.js       # API de la app
 │   └── ui/             # lo que se ve
 │       ├── render.js      # escoge la pantalla
@@ -168,6 +177,7 @@ myDomino/
 │   ├── ai-worker.test.js # pruebas del hilo aparte de la IA
 │   ├── cleanup.test.js # pruebas de la limpieza de mesas abandonadas
 │   ├── online-bots.test.js # pruebas de la compu en mesas en línea
+│   ├── updates.test.js # pruebas del service worker y del aviso de versión nueva
 │   └── fakes/          # Firebase de mentira para las pruebas
 ├── package.json        # solo para correr las pruebas
 ├── DESIGN.md           # diseño y decisiones de la estructura modular

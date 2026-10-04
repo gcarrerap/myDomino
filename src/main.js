@@ -1,15 +1,20 @@
-// Arranque de la interfaz: reloj, suscripción al estado, redibujar al cambiar el tamaño y conectar con Firebase.
-import { actions, state, subscribe } from "./app/index.js";
+// Arranque de la interfaz: reloj, suscripción al estado, redibujar al cambiar el tamaño, conectar con Firebase
+// y estar al tanto de versiones nuevas (#19).
+import { actions, state, subscribe, checkForUpdate, startUpdateChecks } from "./app/index.js";
+import { renderUpdateBar } from "./ui/components/update-bar.js";
 import { tick } from "./ui/clock.js";
 import { render } from "./ui/render.js";
 import { renderTables } from "./ui/screens/lobby.js";
 
 setInterval(tick, 250);
 
-subscribe((what) => (what === "list" ? renderTables() : render()));
+subscribe((what) => { if (what === "list") renderTables(); else render(); renderUpdateBar(); });
 
 window.addEventListener("resize", () => { if (state.view.screen === "table") render(); });
 
 render();
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", actions.start); else actions.start();
+
+startUpdateChecks();
+checkForUpdate();
