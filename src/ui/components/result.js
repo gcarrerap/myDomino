@@ -4,6 +4,7 @@ import { actions, state } from "../../app/index.js";
 import { renderAdvice } from "./advice.js";
 import { renderTracker } from "./tracker.js";
 import { $, esc } from "../dom.js";
+import { renderSheet } from "./sheet.js";
 import { scoreLabels, teamColor } from "../labels.js";
 import { tileSVG } from "../svg/tile.js";
 const { leave, mutate } = actions;
@@ -14,7 +15,7 @@ export function renderResult(st, seat) {
     if (state.view.advice) return renderAdvice(st, seat);
     return renderTracker(st, seat);
   }
-  actions.setView({ advice: null, track: null }, false);
+  actions.setView({ advice: null, track: null }, false); // se cierran solos; syncOverlayHistory quita su entrada del historial
   const r = st.result, c = st.config, labels = scoreLabels(st);
   const title = r.type === "domino" ? `${nameOf(st, r.seat)} dominó` : "Juego cerrado";
   const winTxt = c.teams ? `Gana la mano: ${labels[r.winner]}` : `Gana la mano: ${nameOf(st, r.winner)}`;
@@ -24,14 +25,13 @@ export function renderResult(st, seat) {
   const adds = st.scores.map((s, i) => `<div class="resrow"><span>${esc(labels[i])}</span><span><span class="plus">${r.add[i] ? "+" + r.add[i] : "—"}</span> · ${s}</span></div>`).join("");
   const over = st.status === "gameover";
   const champ = over ? (c.teams ? labels[r.champion] : nameOf(st, r.champion)) : "";
-  m.innerHTML = `<div class="overlay"><div class="modal" role="dialog" aria-modal="true">
-    <h3>${esc(over ? `¡Ganó ${champ}!` : title)}</h3>
+  // Sin ✕: la mano terminó y hay que escoger qué sigue
+  renderSheet(m, "result-" + st.handNo + "-" + st.status, over ? `¡Ganó ${champ}!` : title, `
     <p class="hint">${esc(over ? `${title}. Alguien llegó a ${TARGET} puntos en contra.` : winTxt + (r.type === "cerrado" ? " (menos puntos)" : ""))}</p>
     <div class="res">${rows}</div>
     <h2>Puntos en contra</h2><div class="res">${adds}</div>
-    <div class="row">${seat >= 0 ? (over ? `<button class="primary" id="again">Revancha</button>` : `<button class="primary" id="next">Siguiente mano</button>`) : ""}
-      <button class="ghost" id="exit">Salir a mesas</button></div>
-  </div></div>`;
+    ${seat >= 0 ? (over ? `<button class="primary big-cta" id="again">Revancha</button>` : `<button class="primary big-cta" id="next">Siguiente mano</button>`) : ""}
+    <button class="ghost" id="exit">Salir a mesas</button>`, { closable: false });
   $("#next")?.addEventListener("click", () => mutate((s) => (s.status === "handover" ? deal(s) : s)));
   $("#again")?.addEventListener("click", () => mutate((s) => (s.status === "gameover" ? deal(newGame(s)) : s)));
   $("#exit").onclick = leave;

@@ -17,7 +17,7 @@ Está hecho con HTML, CSS y JavaScript en módulos, sin dependencias ni paso de 
 - **Notas:** marca una ficha de otro jugador como "creo que sí la tiene" o "creo que no".
 - **Tu mano:** toca una ficha para girarla y arrástrala para acomodarla.
 - **Cuenta con Google (opcional):** entras con Google y eres el mismo jugador en cualquier dispositivo. Si no, juegas como invitado.
-- **Sin scroll:** cada pantalla cabe completa en el teléfono. Las opciones se abren en ventanas que suben desde abajo y se cierran con ✕, tocando fuera o con el botón "atrás" del teléfono.
+- **Sin scroll:** cada pantalla cabe completa en el teléfono. Las opciones, el menú de la partida, el registro y el consejo se abren en ventanas que suben desde abajo y se cierran con ✕, tocando fuera o con el botón "atrás" del teléfono.
 - **Escoger asiento alrededor de la mesa:** tocas un asiento para sentarte, agregar a la compu (con su nivel), cambiarle el nivel o quitarla.
 - **Tema claro y oscuro,** según la configuración del sistema.
 

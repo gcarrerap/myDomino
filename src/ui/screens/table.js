@@ -4,12 +4,29 @@ import { deduce } from "../../ai/index.js";
 import { actions, canReveal, mySeat, notify, scheduleBot, state, timerOn } from "../../app/index.js";
 import { tick } from "../clock.js";
 import { renderResult } from "../components/result.js";
+import { closeOverlay, openOverlay, renderSheet } from "../components/sheet.js";
 import { $, esc } from "../dom.js";
 import { modeLabel, scoreLabels, seatPos, teamColor } from "../labels.js";
 import { renderSeats } from "./seats.js";
 import { chainSVG } from "../svg/chain.js";
 import { tileSVG } from "../svg/tile.js";
 const { askAdvice, handArrangement, leave, mutate } = actions;
+
+// Menú de la partida: marcador, ver manos (práctica), jugadas y salir
+function renderGameMenu(st, seat, reveal) {
+  const c = st.config, labels = scoreLabels(st), myScoreIdx = seat >= 0 ? teamOf(st, seat) : -1;
+  renderSheet($("#modal"), "gameMenu", state.view.practice ? "Práctica" : "Mesa " + st.code, `
+    <p class="hint">Mano ${st.handNo} · ${esc(modeLabel(c))}</p>
+    <div class="scores">${st.scores.map((v, i) => `<div class="score ${i === myScoreIdx ? "mine" : ""}"><div class="who">${c.teams ? `<span class="teamdot" style="background:${teamColor(i)}"></span>` : ""}${esc(labels[i])}</div>
+      <div class="val">${v}<small> / ${TARGET}</small></div><div class="bar"><i style="width:${Math.min(100, v)}%"></i></div></div>`).join("")}</div>
+    ${canReveal() ? `<button id="reveal" class="${reveal ? "primary" : ""}" aria-pressed="${reveal}">${reveal ? "Ocultar manos" : "Ver manos (evaluar)"}</button>` : ""}
+    <details class="help"><summary>Jugadas (${st.log.length})</summary><div class="log">${st.log.slice().reverse().map((l) => `<div>${esc(l)}</div>`).join("")}</div></details>
+    <button id="back">← Salir a mesas</button>
+    <button class="primary big-cta" id="menuclose">Volver al juego</button>`);
+  $("#menuclose").onclick = closeOverlay;
+  $("#back").onclick = () => { closeOverlay(); leave(); };
+  $("#reveal")?.addEventListener("click", () => actions.setView({ reveal: !state.view.reveal }));
+}
 
 
 export function renderTable(app) {
@@ -20,7 +37,6 @@ export function renderTable(app) {
   if (st.status === "lobby") return renderSeats(app, st, seat);
   app.className = "game";
   const c = st.config, h = st.hand, n = c.n;
-  const labels = scoreLabels(st);
   const myScoreIdx = seat >= 0 ? teamOf(st, seat) : -1;
   const turnSeats = h.turn !== null ? [h.turn] : (h.board.length ? [] : h.openers);
   const ded = st.status === "playing" ? deduce(st, seat) : null;
@@ -82,19 +98,9 @@ export function renderTable(app) {
     return `<button class="tilebtn ${cls} ${state.view.rotMode ? "rot" : ""}" data-tile="${t}" aria-label="Ficha ${t}">${tileSVG(fl ? b : a, fl ? a : b, true, 22)}</button>`;
   }).join("") : `<p class="hint" style="color:var(--felt-muted)">Estás mirando la mesa.</p>`;
 
-  const menu = state.view.menu ? `<div class="menuov" id="menuov"><nav class="menu" aria-label="Menú">
-      <div class="menu-head"><b>${esc(state.view.practice ? "Práctica" : "Mesa " + st.code)}</b><span class="hint">Mano ${st.handNo} · ${esc(modeLabel(c))}</span></div>
-      <div class="scores">${st.scores.map((v, i) => `<div class="score ${i === myScoreIdx ? "mine" : ""}"><div class="who">${c.teams ? `<span class="teamdot" style="background:${teamColor(i)}"></span>` : ""}${esc(labels[i])}</div>
-        <div class="val">${v}<small> / ${TARGET}</small></div><div class="bar"><i style="width:${Math.min(100, v)}%"></i></div></div>`).join("")}</div>
-      ${canReveal() ? `<button id="reveal" class="${reveal ? "primary" : ""}">${reveal ? "Ocultar manos" : "Ver manos (evaluar)"}</button>` : ""}
-      <h2>Jugadas</h2><div class="log">${st.log.slice().reverse().map((l) => `<div>${esc(l)}</div>`).join("")}</div>
-      <button id="back">← Salir a mesas</button>
-      <button class="primary" id="menuclose">Volver al juego</button>
-    </nav></div>` : "";
-
   app.innerHTML = `
     <header class="gbar">
-      <button class="menubtn" id="menu" aria-label="Menú" aria-expanded="${!!state.view.menu}"><span></span><span></span><span></span></button>
+      <button class="menubtn" id="menu" aria-label="Menú de la partida" aria-haspopup="dialog" aria-expanded="${state.view.sheet === "gameMenu"}"><span></span><span></span><span></span></button>
       <div class="bar-sc">${short}</div>
       <div class="bar-info">${hasPozo(c) ? `Pozo <b>${h.pozo.length}</b>` : ""}${h.muestra ? ` <span class="muestra">${tileSVG(...P(h.muestra), false, 8)}</span>` : ""}</div>
     </header>
@@ -117,8 +123,7 @@ export function renderTable(app) {
         <button id="rot" class="ghost-felt ${state.view.rotMode ? "on" : ""}" aria-pressed="${!!state.view.rotMode}">${state.view.rotMode ? "Listo" : "Girar"}</button></div>` : ""}
       ${state.view.rotMode ? `<p class="rothint">Toca una ficha para girarla. Arrastra para acomodarla.</p>` : ""}
       ${state.view.err ? `<p class="err">${esc(state.view.err)}</p>` : ""}
-    </section>
-    ${menu}`;
+    </section>`;
 
   // Cadena: se dibuja con el tamaño real de la mesa
   // Cadena: usa toda la mesa (los jugadores están en la banda de arriba)
@@ -176,15 +181,11 @@ export function renderTable(app) {
   $("#pass")?.addEventListener("click", () => mutate((s2) => pass(s2, seat)));
   $("#advice")?.addEventListener("click", () => askAdvice(seat));
   $("#rot")?.addEventListener("click", () => actions.setView({ rotMode: !state.view.rotMode }));
-  $("#menu").onclick = () => actions.setView({ menu: !state.view.menu });
-  if (state.view.menu) {
-    $("#menuclose").onclick = () => actions.setView({ menu: false });
-    $("#menuov").onclick = (e) => { if (e.target.id === "menuov") actions.setView({ menu: false }); };
-    $("#back").onclick = leave;
-    $("#reveal")?.addEventListener("click", () => actions.setView({ reveal: !state.view.reveal }));
-  }
-  app.querySelectorAll("[data-track]").forEach((b) => b.onclick = () => actions.setView({ advice: null, trkSel: null, track: +b.dataset.track }));
-  renderResult(st, seat);
+  $("#menu").onclick = () => openOverlay({ sheet: "gameMenu" });
+  app.querySelectorAll("[data-track]").forEach((b) => b.onclick = () => { actions.setView({ trkSel: null }, false); openOverlay({ track: +b.dataset.track }); });
+  // Una sola ventana a la vez, en este orden: menú de la partida, resultado de la mano, consejo, registro
+  if (state.view.sheet === "gameMenu") renderGameMenu(st, seat, reveal);
+  else renderResult(st, seat);
   scheduleBot();
   tick();
 }
