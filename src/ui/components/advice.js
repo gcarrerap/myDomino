@@ -4,6 +4,7 @@ import { LEVELS } from "../../ai/index.js";
 import { actions, state, timerOn, turnKey } from "../../app/index.js";
 import { renderTracker } from "./tracker.js";
 import { $, esc } from "../dom.js";
+import { closeOverlay, renderSheet } from "./sheet.js";
 import { tileSVG } from "../svg/tile.js";
 const { mutate } = actions;
 
@@ -29,16 +30,11 @@ export function renderAdvice(st, seat) {
         </section>`;
       }).join("");
   }
-  m.innerHTML = `<div class="overlay" id="advov"><div class="modal" role="dialog" aria-modal="true" aria-label="Consejo">
-    <h3>Consejo</h3>
+  renderSheet(m, "advice", "Consejo", `
     <p class="hint">Cada nivel solo usa lo que tú puedes saber: tus fichas, la mesa y tu registro.${timerOn(st) ? " El reloj sigue corriendo." : ""}</p>
-    ${body}
-    <div class="row"><button id="advclose">Cerrar</button></div></div></div>`;
-  const close = () => { actions.setView({ advice: null }, false); m.innerHTML = ""; };
-  $("#advclose").onclick = close;
-  $("#advov").onclick = (e) => { if (e.target.id === "advov") close(); };
+    ${body}`);
   m.querySelectorAll("[data-advplay]").forEach((b) => b.onclick = () => {
-    const [t, side] = b.dataset.advplay.split("|"); close();
+    const [t, side] = b.dataset.advplay.split("|"); closeOverlay();
     mutate((s2) => play(s2, seat, t, side));
   });
 }

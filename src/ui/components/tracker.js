@@ -3,6 +3,7 @@ import { P, hasPozo, nameOf } from "../../engine/index.js";
 import { explainTile, tracker } from "../../ai/index.js";
 import { actions, canReveal, noteKey, specFor, state } from "../../app/index.js";
 import { $, esc } from "../dom.js";
+import { closeOverlay, renderSheet } from "./sheet.js";
 import { levelSeg } from "../labels.js";
 import { tileSVG } from "../svg/tile.js";
 
@@ -67,8 +68,7 @@ export function renderTracker(st, seat) {
       calib = `<p class="reveal-note">Modo evaluación: las fichas con punto verde son las que ${esc(name)} tiene de verdad. A esas, el cálculo les daba en promedio <b>${avg}%</b>; repartiendo parejo habría sido como ${naive}%.</p>`;
     } else calib = `<p class="reveal-note">Modo evaluación: todas las fichas de ${esc(name)} ya están marcadas como seguras.</p>`;
   }
-  m.innerHTML = `<div class="overlay" id="trkov"><div class="modal" role="dialog" aria-modal="true" aria-label="Registro de ${esc(name)}">
-    <h3>Registro de ${esc(name)}</h3>
+  renderSheet(m, "track-" + t, `Registro de ${name}`, `
     ${state.view.practice && st.seats[t] && st.seats[t].level ? `<div class="cpurow"><span class="cpuname">Nivel</span>${levelSeg("seat" + t, st.seats[t].level)}</div>` : ""}
     <p class="hint">Tiene <b>${tr.count}</b> ficha${tr.count === 1 ? "" : "s"}. ${exact ? "" : `Puede tener cualquiera de las que se ven completas.`}
       ${hasPozo(st.config) && h.pozo.length ? ` Hay ${h.pozo.length} en el pozo.` : ""}</p>
@@ -82,7 +82,7 @@ export function renderTracker(st, seat) {
     ${tileDetail(st, seat, t, tr, spec)}
     <p class="hint">El porcentaje es especulativo: sale de leer los tiros de cada quien (${spec.events} ${spec.events === 1 ? "tiro analizado" : "tiros analizados"}), no solo de lo seguro. Lo rojo y lo tachado sí son seguros.</p>
     <p class="hint">Toca una ficha para ver por qué tiene ese porcentaje y para anotarla en azul.</p>
-    <div class="trk-legend">
+    <details class="help"><summary>¿Qué significa cada color?</summary><div class="trk-legend">
       <span><span class="trk-t maybe">${tileSVG(6, 1, false, 9)}</span> puede tenerla</span>
       <span><span class="trk-t sure">${tileSVG(6, 1, false, 9)}</span> seguro la tiene</span>
       <span><span class="trk-t no">${tileSVG(6, 1, false, 9)}</span> no la tiene</span>
@@ -90,12 +90,9 @@ export function renderTracker(st, seat) {
       <span><span class="trk-slot sm"></span> la tiró otro o es tuya</span>
       <span><span class="trk-pct lg">62%</span> probabilidad especulativa</span>
       <span><span class="trk-t maybe note-si">${tileSVG(6, 1, false, 9)}</span> tu nota: creo que sí</span>
-      <span><span class="trk-t maybe note-no">${tileSVG(6, 1, false, 9)}</span> tu nota: creo que no</span></div>
-    <div class="row"><button class="primary" id="trkclose">Cerrar</button></div>
-  </div></div>`;
-  const close = () => { actions.setView({ track: null }, false); m.innerHTML = ""; };
-  $("#trkclose").onclick = close;
-  $("#trkov").onclick = (e) => { if (e.target.id === "trkov") close(); };
+      <span><span class="trk-t maybe note-no">${tileSVG(6, 1, false, 9)}</span> tu nota: creo que no</span></div></details>
+    <button class="primary" id="trkclose">Cerrar</button>`);
+  $("#trkclose").onclick = closeOverlay;
   m.querySelectorAll("[data-lvl]").forEach((b) => b.onclick = () => {
     const [id, l] = b.dataset.lvl.split(":");
     actions.setSeatLevel(+id.replace("seat", ""), +l);
@@ -103,10 +100,10 @@ export function renderTracker(st, seat) {
   m.querySelectorAll("[data-setnote]").forEach((b) => b.onclick = () => {
     const [tile, val] = b.dataset.setnote.split("|"), k = noteKey(st, t, tile);
     actions.setNote(k, val);
-    const sc = m.querySelector(".modal").scrollTop; renderTracker(state.tableState, seat); const md = m.querySelector(".modal"); if (md) md.scrollTop = sc;
+    renderTracker(state.tableState, seat); // renderSheet conserva la posición del scroll
   });
   m.querySelectorAll("[data-note]").forEach((b) => b.onclick = () => {
     actions.setView({ trkSel: state.view.trkSel === b.dataset.note ? null : b.dataset.note }, false);
-    const sc = m.querySelector(".modal").scrollTop; renderTracker(state.tableState, seat); const md = m.querySelector(".modal"); if (md) md.scrollTop = sc;
+    renderTracker(state.tableState, seat);
   });
 }

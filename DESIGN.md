@@ -109,7 +109,7 @@ myDomino/
 │       │   ├── seats.js       # renderSeats: asientos alrededor del paño, menú por asiento (#20)
 │       │   └── table.js       # renderTable (incluye tu mano: tocar, girar y arrastrar)
 │       └── components/
-│           ├── sheet.js       # ventanas y menús: openOverlay, closeOverlay, renderSheet; "atrás" y Esc los cierran (#20)
+│           ├── sheet.js       # ventanas: openOverlay, closeOverlay, renderSheet, syncOverlayHistory; "atrás" y Esc las cierran (#20)
 │           ├── result.js      # renderResult
 │           ├── advice.js      # renderAdvice
 │           └── tracker.js     # renderTracker, tileDetail
@@ -190,8 +190,8 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 ### Interfaz sin scroll (#20)
 
 - **Parte 1 ✅:** pantalla de inicio (variante A del diseño), ventanas de "Nueva mesa", "Practicar" y "Tu perfil", y la pantalla de asientos con un menú por asiento. Ninguna pantalla se desplaza; si hay muchas mesas, solo se desplaza la lista.
-- **Ventanas y el botón "atrás":** lo abierto vive en `state.view.sheet` / `state.view.seatMenu`. Abrir agrega una entrada al historial (`pushState`), así "atrás" cierra la ventana en lugar de salir del juego; ✕, tocar fuera y Esc pasan por el mismo `history.back()`. Como `history.back()` no es inmediato, `components/sheet.js` no lo vuelve a llamar hasta recibir `popstate` (si no, dos cierres seguidos sacaban al usuario del juego).
-- **Parte 2 (pendiente):** pasar a la misma ventana el menú de la partida, el registro, el consejo y el resultado.
+- **Parte 2 ✅:** el menú de la partida, el registro de cada jugador, el consejo y el resultado de la mano usan la misma ventana. Se abre una a la vez (menú > resultado > consejo > registro). El resultado no tiene ✕: hay que escoger "Siguiente mano" o "Salir". La lista de jugadas y la leyenda del registro son secciones que se abren y se cierran, y se quedan como las dejaste aunque la ventana se redibuje (por ejemplo, cuando juega la compu).
+- **Ventanas y el botón "atrás":** lo abierto vive en `state.view` (`sheet`, `seatMenu`, `track`, `advice`). El historial sigue al estado: después de cada dibujo, `syncOverlayHistory()` agrega una entrada (`pushState`) si algo se abrió (también si lo abrió `app/`, como el consejo) y la quita (`history.back()`) si se cerró (✕, tocar fuera, Esc, cambió el turno, empezó otra mano o entraste a una mesa). Así "atrás" siempre cierra la ventana en lugar de salir del juego. Como `history.back()` no es inmediato, no se vuelve a llamar hasta recibir `popstate` (si no, dos cierres seguidos sacaban al usuario del juego).
 
 ### Pendientes conocidos (fuera de las fases)
 
