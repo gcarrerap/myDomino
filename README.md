@@ -9,6 +9,7 @@ Está hecho con HTML, CSS y JavaScript en módulos, sin dependencias ni paso de 
 - **Multijugador en tiempo real:** creas una mesa, los demás se unen desde *Mesas abiertas* y todos ven la partida al instante.
 - **Limpieza automática:** las mesas en línea que se quedan sin nadie sentado antes de repartir se borran solas después de 5 minutos sin cambios.
 - **Práctica contra la compu:** juegas solo contra bots, sin necesidad de otros jugadores.
+- **La compu en mesas en línea:** los asientos libres de una mesa en línea se pueden llenar con la compu (con su nivel), por ejemplo 2 personas contra 2 compus. A la compu la mueve el teléfono de quien está sentado en el asiento más bajo; si ese teléfono no está, el de alguien más.
 - **Tres niveles de bot:** Básico, Intermedio y Avanzado. Los bots solo usan información legítima: su propia mano, la mesa y lo que cada jugador ha tirado, comido o pasado. Nunca ven fichas ajenas.
 - **Consejo:** muestra qué ficha tiraría cada uno de los tres niveles y por qué.
 - **Registro de fichas:** deduce qué fichas puede o no tener cada jugador según el historial de la mano.
@@ -146,7 +147,7 @@ myDomino/
 │   ├── app/            # estado de la app y lo que lo cambia
 │   │   ├── store.js       # el estado (pantalla, mesa abierta, modo, tu mano, notas…) y quién lo escucha
 │   │   ├── actions.js     # todo lo que cambia el estado: mesas, práctica, preferencias, consejo…
-│   │   ├── practice.js    # la compu en modo práctica
+│   │   ├── bots.js        # la compu: en práctica y en mesas en línea
 │   │   ├── clock.js       # reloj de turno
 │   │   ├── ai-client.js   # pide los cálculos pesados al hilo aparte
 │   │   ├── cleanup.js     # borra las mesas que se quedan vacías
@@ -166,6 +167,7 @@ myDomino/
 │   ├── app.test.js     # pruebas del estado y las acciones
 │   ├── ai-worker.test.js # pruebas del hilo aparte de la IA
 │   ├── cleanup.test.js # pruebas de la limpieza de mesas vacías
+│   ├── online-bots.test.js # pruebas de la compu en mesas en línea
 │   └── fakes/          # Firebase de mentira para las pruebas
 ├── package.json        # solo para correr las pruebas
 ├── DESIGN.md           # diseño y decisiones de la estructura modular
