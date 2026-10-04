@@ -32,8 +32,17 @@ export function deal(st, rnd = Math.random) {
   } else {
     h.turn = st.lastWinner; h.openers = [st.lastWinner];
   }
-  return { ...st, status: "playing", handNo: st.handNo + 1, hand: h, result: null,
+  // Cómo empezó la mano, para poder grabarla y reproducirla después (#25)
+  h.start = { t: h.since, hands: hands.map((x) => x.slice()), pozo: pozo.slice(), muestra, turn: h.turn, openers: h.openers.slice(), firstReq: h.firstReq };
+  // Cada partida nueva (primera mano) recibe su propio identificador
+  const game = st.handNo === 0 || !st.gameId ? { gameId: newGameId(st.code), gameStart: h.since } : {};
+  return { ...st, ...game, status: "playing", handNo: st.handNo + 1, hand: h, result: null,
     log: pushLog(st.log, `Mano ${st.handNo + 1}: repartidas ${c.per} fichas por jugador` + (muestra ? `, muestra ${muestra}` : "")), v: st.v + 1 };
+}
+
+function newGameId(code) {
+  const safe = String(code || "mesa").normalize("NFD").replace(/[^A-Za-z0-9]/g, "") || "mesa";
+  return safe + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
 export function pushLog(log, msg) { return [...(log || []), msg].slice(-12); }

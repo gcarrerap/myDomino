@@ -66,6 +66,7 @@ myDomino/
 │   │   ├── moves.js           # legalPlays, play, draw, pass, canDraw, canPass, ends, resolvePending
 │   │   ├── scoring.js         # endHand (puntos en contra, tranque, campeón)
 │   │   ├── timing.js          # limitMs, autoMove
+│   │   ├── record.js          # buildHandRecord, replayHand, groupGames: grabación de manos (#25)
 │   │   └── index.js           # reexporta la API del motor
 │   │
 │   ├── ai/                    # jugadores de la compu y consejo — puro, probado con Node
@@ -84,6 +85,7 @@ myDomino/
 │   │   ├── tables-repo.js     # makeDb, watchTableList, watchTable, saveNewTable, updateTable, SKIP
 │   │   ├── prefs.js           # ls: wrapper seguro de localStorage
 │   │   ├── updates.js         # registerServiceWorker, fetchPublishedVersion (#19)
+│   │   ├── recordings.js      # saveHandRecord: manos grabadas en la colección "manos" (#25)
 │   │   └── index.js           # reexporta la API de servicios
 │   │
 │   ├── app/                   # estado y casos de uso de la app
@@ -93,6 +95,8 @@ myDomino/
 │   │   ├── clock.js           # tickClock: reloj de turno (la interfaz solo lo pinta)
 │   │   ├── ai-client.js       # runAI: pide cálculos al worker; si no hay worker, calcula aquí
 │   │   ├── updates.js         # checkForUpdate, startUpdateChecks, applyUpdate: aviso de versión nueva (#19)
+│   │   ├── recorder.js        # createRecorder: cola local y subida de manos grabadas (#25)
+│   │   ├── recording.js       # conecta la grabación con el estado de la app (#25)
 │   │   ├── cleanup.js         # cleanupInactiveTables: borra mesas sin cambios (5 min vacías, 1 h sin repartir, 6 h empezadas) (#13, #17)
 │   │   └── index.js           # reexporta la API de la app
 │   │
@@ -113,6 +117,9 @@ myDomino/
 │           ├── result.js      # renderResult
 │           ├── advice.js      # renderAdvice
 │           └── tracker.js     # renderTracker, tileDetail
+├── firestore.rules            # reglas de Firestore: mesas y manos grabadas (#25)
+├── scripts/
+│   └── export-partidas.mjs    # descarga las manos grabadas a JSONL (#25); no es parte del juego publicado
 └── tests/
     ├── engine.test.js         # reparto, jugadas, tranque, puntuación por modo
     ├── ai.test.js             # los bots solo devuelven jugadas legales y no ven fichas ajenas
@@ -121,6 +128,7 @@ myDomino/
     ├── ai-worker.test.js      # el worker, el cliente (con un Worker de mentira) y la app mientras la compu piensa
     ├── cleanup.test.js        # limpieza de mesas abandonadas
     ├── updates.test.js        # service worker y aviso de versión nueva
+    ├── record.test.js         # grabación: registro de cada mano, reproducción, cola sin conexión, sin duplicados (#25)
     ├── online-bots.test.js    # la compu en mesas en línea: agregar/quitar, quién la mueve, respaldo, sin jugadas dobles
     └── fakes/firebase.js      # Firebase de mentira en memoria para las pruebas
 ```
@@ -208,6 +216,18 @@ Firebase real no se puede usar en las pruebas automáticas, así que hay dos red
 - Desde la fase 5 también se hace un recorrido por toda la interfaz con el reloj del navegador detenido (`page.clock`), comparando el HTML de la pantalla y lo guardado en el dispositivo después de cada paso.
 
 La prueba con el Firebase real (dominio autorizado, reglas de Firestore, login con Google) queda para el final de la migración.
+
+### Grabación de partidas (#25)
+
+Cada mano que termina se graba en Firestore para entrenar y evaluar el motor de lectura (#24). No se ve en la interfaz.
+
+- **Qué se graba:** un documento por mano en la colección `manos`, con id `<partida>_<mano>`: partida, modo (en línea o práctica), versión del juego, configuración, jugadores (nombre, id, persona o compu con su nivel), reparto inicial (manos, pozo, muestra, quién sale), cada evento con su hora y quién lo decidió (`human`, `bot` o `auto` si fue el reloj), tiempo de decisión (`ms`) y resultado con el marcador antes y después. El formato está en `engine/record.js`.
+- **De dónde sale:** el motor guarda cómo empezó la mano (`hand.start`), el id de la partida (`gameId`, nuevo en cada primera mano) y la hora de cada evento (`t`). `app/recording.js` se suscribe al estado y, cuando ve una mano terminada, la arma con `buildHandRecord`. Las horas vienen del reloj del teléfono que aplicó cada jugada, así que en línea el tiempo de decisión puede tener algo de ruido.
+- **Cola y subida:** `app/recorder.js` guarda cada mano en `localStorage` (`dom.rec`, máximo 150) y la sube cuando hay conexión. Si la subida falla por conexión, se reintenta al terminar la siguiente mano o al volver a abrir el juego. Nunca muestra errores.
+- **Sin duplicados:** en línea graban todos los teléfonos con persona sentada (quien solo mira no graba). Las reglas (`firestore.rules`) solo permiten **crear**: el segundo intento de la misma mano se rechaza con `permission-denied` y se descarta. Por eso **las reglas deben publicarse antes que esta versión del juego**: sin ellas, Firestore rechaza todo y las manos se descartan.
+- **Lectura:** los teléfonos no pueden leer, cambiar ni borrar la colección. `scripts/export-partidas.mjs` las descarga con una cuenta de servicio y las agrupa en partidas (`groupGames`): una por línea, marcada `finished` o `abandoned`.
+- **Reproducir:** `replayHand(registro)` vuelve a jugar la mano con las reglas del motor y llega al mismo resultado; las pruebas lo verifican.
+- **Límite:** solo se graban manos terminadas. Si se abandona una mano a la mitad, esa mano no queda (la partida aparece como `abandoned`).
 
 ## 7. Consecuencias
 
