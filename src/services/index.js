@@ -2,3 +2,4 @@
 export { ls } from "./prefs.js";
 export { loadFirebaseSdk, initFirebase, signInWithGoogle, signOut } from "./firebase.js";
 export { SKIP, makeDb, watchTableList, watchTable, saveNewTable, updateTable } from "./tables-repo.js";
+export { registerServiceWorker, fetchPublishedVersion } from "./updates.js";

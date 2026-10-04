@@ -39,6 +39,7 @@ export const state = {
   clock: { key: null, start: 0, fired: false }, // reloj del turno, medido desde que este teléfono vio el turno
   specCache: { key: null, viewer: null, data: null },
   botTimer: null,
+  updateAvailable: false, // versión publicada más nueva que la que está corriendo (#19)
   dragging: false, // la interfaz está arrastrando una ficha de tu mano: no redibujar
 };
 

@@ -46,6 +46,7 @@ Esta es la estructura final, tal como quedó al terminar la fase 6 (las diferenc
 
 ```
 myDomino/
+├── sw.js                      # service worker: archivos del sitio siempre del servidor primero; copia para sin conexión (#19)
 ├── index.html                 # solo el esqueleto: <div id="app">, CSS, src/config.js y <script type="module" src="src/main.js">
 ├── styles/
 │   ├── reset.css              # reset mínimo de la página
@@ -54,6 +55,7 @@ myDomino/
 │   ├── lobby.css
 │   └── table.css              # paño, fichas, mano, marcador, consejo
 ├── src/
+│   ├── version.js             # VERSION publicada; se cambia en cada publicación (#19)
 │   ├── main.js                # arranque: reloj, suscripción al estado, render inicial y conexión con Firebase
 │   ├── config.js              # FIREBASE_CONFIG (único archivo a editar para usar otro proyecto; script clásico)
 │   │
@@ -81,6 +83,7 @@ myDomino/
 │   │   ├── firebase.js        # loadFirebaseSdk (carga el SDK del CDN después de dibujar), initFirebase (anónimo), signInWithGoogle, signOut
 │   │   ├── tables-repo.js     # makeDb, watchTableList, watchTable, saveNewTable, updateTable, SKIP
 │   │   ├── prefs.js           # ls: wrapper seguro de localStorage
+│   │   ├── updates.js         # registerServiceWorker, fetchPublishedVersion (#19)
 │   │   └── index.js           # reexporta la API de servicios
 │   │
 │   ├── app/                   # estado y casos de uso de la app
@@ -89,6 +92,7 @@ myDomino/
 │   │   ├── bots.js            # isBotSeat, botRole, botActor, scheduleBot, openDelayMs: la compu en práctica y en línea (#15)
 │   │   ├── clock.js           # tickClock: reloj de turno (la interfaz solo lo pinta)
 │   │   ├── ai-client.js       # runAI: pide cálculos al worker; si no hay worker, calcula aquí
+│   │   ├── updates.js         # checkForUpdate, startUpdateChecks, applyUpdate: aviso de versión nueva (#19)
 │   │   ├── cleanup.js         # cleanupInactiveTables: borra mesas sin cambios (5 min vacías, 1 h sin repartir, 6 h empezadas) (#13, #17)
 │   │   └── index.js           # reexporta la API de la app
 │   │
@@ -115,6 +119,7 @@ myDomino/
     ├── app.test.js            # práctica, compu, reloj, preferencias, mano, notas, mesas en línea, consejo
     ├── ai-worker.test.js      # el worker, el cliente (con un Worker de mentira) y la app mientras la compu piensa
     ├── cleanup.test.js        # limpieza de mesas abandonadas
+    ├── updates.test.js        # service worker y aviso de versión nueva
     ├── online-bots.test.js    # la compu en mesas en línea: agregar/quitar, quién la mueve, respaldo, sin jugadas dobles
     └── fakes/firebase.js      # Firebase de mentira en memoria para las pruebas
 ```
