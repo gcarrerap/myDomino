@@ -10,7 +10,7 @@ const fb = fakeFirebase(); globalThis.firebase = fb.firebase;
 
 const { isEmptyTable, newTable, deal } = await import("../src/engine/index.js");
 const { state, actions } = await import("../src/app/index.js");
-const { cleanupEmptyTables, EMPTY_TABLE_GRACE_MS } = await import("../src/app/cleanup.js");
+const { cleanupEmptyTables, cleanupInactiveTables, idleLimitMs, EMPTY_TABLE_GRACE_MS } = await import("../src/app/cleanup.js");
 
 const MIN = 60 * 1000;
 const settle = () => new Promise((r) => setImmediate(r));
@@ -52,11 +52,48 @@ test("una mesa vacía hace poco se queda; se borra cuando se cumplen los 5 minut
   assert.ok(!exists("RECI"));
 });
 
-test("no se borran mesas con alguien sentado ni partidas empezadas, por viejas que sean", async () => {
-  await put("SENT", { seated: ["Ana"], ago: 60 * MIN });
-  await put("JUEG", { seated: ["Ana", "Beto"], status: "playing", ago: 60 * MIN });
-  assert.deepEqual(await cleanupEmptyTables(Date.now() + 60 * MIN), []);
-  assert.ok(exists("SENT") && exists("JUEG"));
+// ---------- Mesas inactivas con personas (#17) ----------
+
+test("con personas sentadas y sin repartir: se queda hasta 1 hora sin cambios, luego se borra", async () => {
+  await put("SENT", { seated: ["Ana"], ago: 30 * MIN });
+  assert.ok(exists("SENT"), "a los 30 minutos se queda");
+  assert.deepEqual(await cleanupInactiveTables(Date.now() + 29 * MIN), [], "a los 59 minutos se queda");
+  assert.deepEqual(await cleanupInactiveTables(Date.now() + 30 * MIN), ["SENT"]);
+  assert.ok(!exists("SENT"));
+});
+
+test("partida empezada (con o sin compu): se queda hasta 6 horas sin jugadas, luego se borra", async () => {
+  await put("JUEG", { seated: ["Ana", "Beto"], status: "playing", ago: 5 * 60 * MIN });
+  assert.ok(exists("JUEG"), "a las 5 horas se queda");
+  assert.deepEqual(await cleanupInactiveTables(Date.now() + 59 * MIN), [], "a las 5:59 se queda");
+  assert.deepEqual(await cleanupInactiveTables(Date.now() + 60 * MIN), ["JUEG"]);
+  assert.ok(!exists("JUEG"));
+});
+
+test("una mesa vieja que ya existía se borra en cuanto alguien abre el lobby", async () => {
+  await put("ABAN", { seated: ["Ana", "Beto"], status: "playing", ago: 24 * 60 * MIN });
+  await settle(); await settle();
+  assert.ok(!exists("ABAN"));
+});
+
+test("si alguien jugó justo antes de borrar (otra versión), la partida no se borra", async () => {
+  await put("ACTV", { seated: ["Ana", "Beto"], status: "playing", ago: 2 * 60 * MIN });
+  const listed = state.listCache.find((t) => t.code === "ACTV");
+  // la lista del lobby la ve inactiva (dato viejo), pero en la base ya hay una jugada nueva
+  state.listCache = [listed]; state.listUpdated = { ACTV: Date.now() - 7 * 60 * MIN };
+  const doc = fb.fs._docs.get("mesas/ACTV"), st = JSON.parse(doc.json); st.v++;
+  fb.fs._docs.set("mesas/ACTV", { ...doc, json: JSON.stringify(st) });
+  assert.deepEqual(await cleanupInactiveTables(), []);
+  assert.ok(exists("ACTV"));
+});
+
+test("los límites dependen del estado de la mesa", () => {
+  const t = newTable("L", { n: 2, teams: false, per: 7 }, "h");
+  assert.equal(idleLimitMs(t), EMPTY_TABLE_GRACE_MS);
+  assert.equal(idleLimitMs({ ...t, seats: [null, { id: "bot1", name: "Lupe", bot: true }] }), EMPTY_TABLE_GRACE_MS, "solo compu cuenta como vacía");
+  assert.equal(idleLimitMs({ ...t, seats: [{ id: "a", name: "Ana" }, null] }), 60 * MIN);
+  assert.equal(idleLimitMs({ ...t, status: "playing" }), 6 * 60 * MIN);
+  assert.equal(idleLimitMs({ ...t, status: "gameover" }), 6 * 60 * MIN);
 });
 
 test("si alguien se sienta justo antes de borrar, la mesa no se borra", async () => {
