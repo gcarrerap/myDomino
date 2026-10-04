@@ -5,7 +5,8 @@ export const SKIP = {}; // un cambio que al final no hace falta guardar
 
 // Adaptador: guarda cada mesa como texto JSON (Firestore no acepta listas dentro de listas)
 export function makeDb(fs) {
-  const wrap = (snap) => ({ exists: snap.exists, data: () => (snap.exists ? JSON.parse(snap.data().json) : undefined) });
+  // updated: cuándo se guardó por última vez (ms), para saber cuánto lleva sin cambios
+  const wrap = (snap) => ({ exists: snap.exists, data: () => (snap.exists ? JSON.parse(snap.data().json) : undefined), updated: snap.exists ? snap.data().updated : undefined });
   const pack = (st) => ({ json: JSON.stringify(st), code: st.code, created: st.created || Date.now(), updated: Date.now() });
   const docApi = (ref) => ({
     _ref: ref,
@@ -28,10 +29,13 @@ export function makeDb(fs) {
   };
 }
 
-// Las 20 mesas más recientes. onList recibe una lista de estados; devuelve la función para dejar de escuchar.
+// Las 20 mesas más recientes. onList(list, updated) recibe la lista de estados y, por código de mesa, cuándo
+// se guardó por última vez (ms). Devuelve la función para dejar de escuchar.
 export function watchTableList(db, onList, onError) {
   return db.collection("mesas").orderBy("created", "desc").limit(20).onSnapshot((snap) => {
-    onList(snap.docs.map((d) => d.data()).filter(Boolean));
+    const list = [], updated = {};
+    for (const d of snap.docs) { const st = d.data(); if (st) { list.push(st); updated[st.code] = d.updated; } }
+    onList(list, updated);
   }, onError);
 }
 

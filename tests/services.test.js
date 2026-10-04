@@ -72,9 +72,11 @@ test("escuchar una mesa: recibe cada cambio, y null cuando la borran", async () 
 test("la lista de mesas: las 20 más recientes primero", async () => {
   const db = makeDb(fakeFirestore());
   for (let i = 0; i < 25; i++) await saveNewTable(db, mesa("M" + String(i).padStart(3, "0"), 1000 + i));
-  let list = null;
-  const stop = watchTableList(db, (l) => (list = l));
+  let list = null, updated = null;
+  const stop = watchTableList(db, (l, u) => { list = l; updated = u; });
   assert.equal(list.length, 20);
+  assert.equal(Object.keys(updated).length, 20);
+  assert.ok(list.every((t) => typeof updated[t.code] === "number"), "trae cuándo se guardó cada mesa");
   assert.equal(list[0].code, "M024");
   assert.equal(list[19].code, "M005");
   stop();
