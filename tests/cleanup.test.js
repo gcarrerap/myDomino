@@ -1,0 +1,89 @@
+// Pruebas de la limpieza de mesas vacías (issue #13), con el Firebase de mentira.
+import { test, before } from "node:test";
+import assert from "node:assert/strict";
+import { fakeFirebase } from "./fakes/firebase.js";
+
+globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+globalThis.window = globalThis;
+globalThis.FIREBASE_CONFIG = { projectId: "demo" };
+const fb = fakeFirebase(); globalThis.firebase = fb.firebase;
+
+const { isEmptyTable, newTable, deal } = await import("../src/engine/index.js");
+const { state, actions } = await import("../src/app/index.js");
+const { cleanupEmptyTables, EMPTY_TABLE_GRACE_MS } = await import("../src/app/cleanup.js");
+
+const MIN = 60 * 1000;
+const settle = () => new Promise((r) => setImmediate(r));
+const exists = (code) => fb.fs._docs.has("mesas/" + code);
+
+// Guarda una mesa directo en la base, como si la hubiera guardado otro teléfono hace `ago` ms
+async function put(code, { seated = [], status = "lobby", ago = 0 } = {}) {
+  let st = newTable(code, { n: 2, teams: false, per: 7 }, "host");
+  seated.forEach((name, i) => (st.seats[i] = { id: "id" + name, name }));
+  if (status !== "lobby") st = deal(st);
+  const now = Date.now();
+  await fb.fs.doc("mesas/" + code).set({ json: JSON.stringify(st), code, created: now - ago, updated: now - ago });
+  await settle();
+}
+
+before(async () => { await actions.start(); });
+
+test("una mesa sin repartir y sin nadie sentado cuenta como vacía", () => {
+  const st = newTable("X", { n: 2, teams: false, per: 7 }, "h");
+  assert.ok(isEmptyTable(st));
+  st.seats[1] = { id: "a", name: "Ana" };
+  assert.ok(!isEmptyTable(st));
+  const started = deal({ ...st, seats: [{ id: "a", name: "A" }, { id: "b", name: "B" }] });
+  assert.ok(!isEmptyTable({ ...started, seats: [null, null] }), "una partida empezada no cuenta");
+});
+
+test("una mesa vacía desde hace más de 5 minutos se borra sola al llegar al lobby", async () => {
+  await put("VIEJ", { ago: 10 * MIN });
+  await settle(); await settle();
+  assert.ok(!exists("VIEJ"));
+});
+
+test("una mesa vacía hace poco se queda; se borra cuando se cumplen los 5 minutos", async () => {
+  await put("RECI", { ago: 1 * MIN });
+  assert.ok(exists("RECI"));
+  assert.deepEqual(await cleanupEmptyTables(Date.now() + 3 * MIN), []);
+  assert.ok(exists("RECI"), "a los 4 minutos todavía no");
+  assert.deepEqual(await cleanupEmptyTables(Date.now() + EMPTY_TABLE_GRACE_MS), ["RECI"]);
+  assert.ok(!exists("RECI"));
+});
+
+test("no se borran mesas con alguien sentado ni partidas empezadas, por viejas que sean", async () => {
+  await put("SENT", { seated: ["Ana"], ago: 60 * MIN });
+  await put("JUEG", { seated: ["Ana", "Beto"], status: "playing", ago: 60 * MIN });
+  assert.deepEqual(await cleanupEmptyTables(Date.now() + 60 * MIN), []);
+  assert.ok(exists("SENT") && exists("JUEG"));
+});
+
+test("si alguien se sienta justo antes de borrar, la mesa no se borra", async () => {
+  await put("JUST", { seated: ["Ana"], ago: 30 * MIN });
+  // la lista del lobby todavía la ve vacía (dato viejo), pero en la base ya hay alguien sentado
+  const stale = newTable("JUST", { n: 2, teams: false, per: 7 }, "host");
+  state.listCache = [stale]; state.listUpdated = { JUST: Date.now() - 30 * MIN };
+  assert.deepEqual(await cleanupEmptyTables(), []);
+  assert.ok(exists("JUST"));
+});
+
+test("si la mesa ya no existe o Firestore no deja borrar, no pasa nada", async () => {
+  const stale = newTable("NADA", { n: 2, teams: false, per: 7 }, "host");
+  state.listCache = [stale]; state.listUpdated = { NADA: 0 };
+  assert.deepEqual(await cleanupEmptyTables(), []);
+});
+
+test("cuando el último jugador se levanta, la mesa se borra después del margen", async () => {
+  state.me.name = "Ana"; state.config = { n: 2, teams: false, per: 7, timer: false };
+  await actions.createTable();
+  const code = state.view.code;
+  await actions.mutate((s) => { s.seats = s.seats.map(() => null); s.v++; return s; }); // "Levantarme"
+  await settle();
+  assert.ok(exists(code), "recién vacía: se queda");
+  await cleanupEmptyTables(Date.now() + EMPTY_TABLE_GRACE_MS + 1000);
+  await settle();
+  assert.ok(!exists(code));
+  assert.equal(state.tableState, null, "quien la estaba viendo ve que ya no existe");
+  assert.equal(state.view.err, "Esta mesa ya no existe.");
+});

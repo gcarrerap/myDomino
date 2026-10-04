@@ -7,6 +7,7 @@ Está hecho con HTML, CSS y JavaScript en módulos, sin dependencias ni paso de 
 ## Características
 
 - **Multijugador en tiempo real:** creas una mesa, los demás se unen desde *Mesas abiertas* y todos ven la partida al instante.
+- **Limpieza automática:** las mesas en línea que se quedan sin nadie sentado antes de repartir se borran solas después de 5 minutos sin cambios.
 - **Práctica contra la compu:** juegas solo contra bots, sin necesidad de otros jugadores.
 - **Tres niveles de bot:** Básico, Intermedio y Avanzado. Los bots solo usan información legítima: su propia mano, la mesa y lo que cada jugador ha tirado, comido o pasado. Nunca ven fichas ajenas.
 - **Consejo:** muestra qué ficha tiraría cada uno de los tres niveles y por qué.
@@ -148,6 +149,7 @@ myDomino/
 │   │   ├── practice.js    # la compu en modo práctica
 │   │   ├── clock.js       # reloj de turno
 │   │   ├── ai-client.js   # pide los cálculos pesados al hilo aparte
+│   │   ├── cleanup.js     # borra las mesas que se quedan vacías
 │   │   └── index.js       # API de la app
 │   └── ui/             # lo que se ve
 │       ├── render.js      # escoge la pantalla
@@ -163,6 +165,7 @@ myDomino/
 │   ├── services.test.js # pruebas de los servicios
 │   ├── app.test.js     # pruebas del estado y las acciones
 │   ├── ai-worker.test.js # pruebas del hilo aparte de la IA
+│   ├── cleanup.test.js # pruebas de la limpieza de mesas vacías
 │   └── fakes/          # Firebase de mentira para las pruebas
 ├── package.json        # solo para correr las pruebas
 ├── DESIGN.md           # diseño y decisiones de la estructura modular

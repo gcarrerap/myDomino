@@ -89,6 +89,7 @@ myDomino/
 │   │   ├── practice.js        # botActor, scheduleBot, openDelayMs (bots en modo práctica)
 │   │   ├── clock.js           # tickClock: reloj de turno (la interfaz solo lo pinta)
 │   │   ├── ai-client.js       # runAI: pide cálculos al worker; si no hay worker, calcula aquí
+│   │   ├── cleanup.js         # cleanupEmptyTables: borra mesas vacías tras 5 min sin cambios (#13)
 │   │   └── index.js           # reexporta la API de la app
 │   │
 │   └── ui/                    # vista: produce HTML/SVG y conecta eventos
@@ -113,6 +114,7 @@ myDomino/
     ├── services.test.js       # mesas en Firestore, transacciones, sesión, localStorage
     ├── app.test.js            # práctica, compu, reloj, preferencias, mano, notas, mesas en línea, consejo
     ├── ai-worker.test.js      # el worker, el cliente (con un Worker de mentira) y la app mientras la compu piensa
+    ├── cleanup.test.js        # limpieza de mesas vacías
     └── fakes/firebase.js      # Firebase de mentira en memoria para las pruebas
 ```
 

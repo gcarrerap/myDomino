@@ -30,6 +30,7 @@ export const state = {
   view: { screen: "lobby", code: null, practice: false, sel: null, err: "" },
   tableState: null, // la mesa abierta (en línea o de práctica)
   listCache: [], // mesas abiertas en el lobby
+  listUpdated: {}, // por código de mesa: cuándo se guardó por última vez (ms)
   unsubTable: null, unsubList: null,
   config: { n: 4, teams: true, per: 7, timer: ls.get("dom.timer") !== "0" }, // modo para la siguiente mesa
   botLevels: loadBotLevels(), // nivel de cada compu en práctica
