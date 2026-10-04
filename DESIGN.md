@@ -89,7 +89,7 @@ myDomino/
 │   │   ├── bots.js            # isBotSeat, botRole, botActor, scheduleBot, openDelayMs: la compu en práctica y en línea (#15)
 │   │   ├── clock.js           # tickClock: reloj de turno (la interfaz solo lo pinta)
 │   │   ├── ai-client.js       # runAI: pide cálculos al worker; si no hay worker, calcula aquí
-│   │   ├── cleanup.js         # cleanupEmptyTables: borra mesas vacías tras 5 min sin cambios (#13)
+│   │   ├── cleanup.js         # cleanupInactiveTables: borra mesas sin cambios (5 min vacías, 1 h sin repartir, 6 h empezadas) (#13, #17)
 │   │   └── index.js           # reexporta la API de la app
 │   │
 │   └── ui/                    # vista: produce HTML/SVG y conecta eventos
@@ -114,7 +114,7 @@ myDomino/
     ├── services.test.js       # mesas en Firestore, transacciones, sesión, localStorage
     ├── app.test.js            # práctica, compu, reloj, preferencias, mano, notas, mesas en línea, consejo
     ├── ai-worker.test.js      # el worker, el cliente (con un Worker de mentira) y la app mientras la compu piensa
-    ├── cleanup.test.js        # limpieza de mesas vacías
+    ├── cleanup.test.js        # limpieza de mesas abandonadas
     ├── online-bots.test.js    # la compu en mesas en línea: agregar/quitar, quién la mueve, respaldo, sin jugadas dobles
     └── fakes/firebase.js      # Firebase de mentira en memoria para las pruebas
 ```

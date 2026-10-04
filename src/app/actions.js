@@ -5,7 +5,7 @@ import { ls, initFirebase, signInWithGoogle, signOut, SKIP, makeDb, watchTableLi
 import { state, notify, isGoogle, turnKey, mySeat } from "./store.js";
 import { BOT_NAMES } from "./bots.js";
 import { runAI } from "./ai-client.js";
-import { cleanupEmptyTables, CLEANUP_EVERY_MS } from "./cleanup.js";
+import { cleanupInactiveTables, CLEANUP_EVERY_MS } from "./cleanup.js";
 
 // ---------- Sesión ----------
 function applyUser(u) {
@@ -33,11 +33,11 @@ function subscribeList() {
   if (!state.db || state.unsubList) return;
   state.unsubList = watchTableList(state.db, (list, updated) => {
     state.listCache = list; state.listUpdated = updated;
-    cleanupEmptyTables();
+    cleanupInactiveTables();
     if (state.view.screen === "lobby") notify("list");
   }, () => { state.unsubList = null; });
   // Las mesas que se quedan vacías no vuelven a cambiar: se revisan cada minuto, no solo cuando cambia la lista
-  if (!cleanupTimer) { cleanupTimer = setInterval(() => cleanupEmptyTables(), CLEANUP_EVERY_MS); cleanupTimer.unref?.(); } // unref: en Node (pruebas) no detiene la salida
+  if (!cleanupTimer) { cleanupTimer = setInterval(() => cleanupInactiveTables(), CLEANUP_EVERY_MS); cleanupTimer.unref?.(); } // unref: en Node (pruebas) no detiene la salida
 }
 let cleanupTimer = null;
 
