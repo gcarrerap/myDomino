@@ -2,7 +2,7 @@
 import { deal } from "../../engine/index.js";
 import { actions, state } from "../../app/index.js";
 import { $, esc } from "../dom.js";
-import { modeLabel, teamColor } from "../labels.js";
+import { levelSeg, modeLabel, teamColor } from "../labels.js";
 const { leave, mutate } = actions;
 
 export function renderSeats(app, st, seat) {
@@ -14,15 +14,18 @@ export function renderSeats(app, st, seat) {
       <p class="hint">Comparte el enlace de esta página. Cada quien entra a la mesa ${esc(st.code)} y escoge asiento.</p>
       <div class="seats">${st.seats.map((s, i) => `<div class="seat ${s ? "taken" : ""}">
         <span class="lbl">${c.teams ? `<span class="teamdot" style="background:${teamColor(i % 2)}"></span>Pareja ${i % 2 === 0 ? "A" : "B"} · ` : ""}Asiento ${i + 1}</span>
-        <strong>${s ? esc(s.name) + (s.id === state.me.id ? " (tú)" : "") : "Libre"}</strong>
-        ${!s ? `<button data-sit="${i}">Sentarme aquí</button>` : s.id === state.me.id ? `<button class="ghost" data-stand="${i}">Levantarme</button>` : ""}
+        <strong>${s ? esc(s.name) + (s.bot ? " · compu" : s.id === state.me.id ? " (tú)" : "") : "Libre"}</strong>
+        ${!s ? `<button data-sit="${i}">Sentarme aquí</button>${seat >= 0 ? `<button class="ghost" data-addbot="${i}">Agregar compu</button>` : ""}`
+          : s.bot ? `${levelSeg("bot" + i, s.level || 2)}${seat >= 0 ? `<button class="ghost" data-unbot="${i}">Quitar</button>` : ""}`
+          : s.id === state.me.id ? `<button class="ghost" data-stand="${i}">Levantarme</button>` : ""}
       </div>`).join("")}</div>
       ${!state.me.name ? `<label for="nm2">Tu nombre</label><input type="text" id="nm2" maxlength="16" placeholder="Ej. Rodrigo">` : ""}
       <div class="row">
         <button class="primary" id="start" ${full && seat >= 0 ? "" : "disabled"}>Repartir</button>
         ${isHost ? `<button class="ghost" id="del">Borrar mesa</button>` : ""}
       </div>
-      <p class="hint">${full ? "Todos sentados. Cualquier jugador puede repartir." : "Faltan jugadores."}</p>
+      <p class="hint">${full ? "Todos sentados. Cualquier jugador puede repartir." : seat >= 0 ? "Faltan jugadores. Puedes llenar los asientos libres con la compu." : "Faltan jugadores."}</p>
+      ${st.seats.some((x) => x && x.bot) ? `<p class="hint">A la compu la mueve el teléfono de quien está sentado en el asiento más bajo; si no está, el de alguien más.</p>` : ""}
     </section>
     <p class="err">${esc(state.view.err)}</p>`;
   $("#back").onclick = leave;
@@ -34,7 +37,14 @@ export function renderSeats(app, st, seat) {
       s.seats = s.seats.map((x) => (x && x.id === state.me.id ? null : x)); s.seats[i] = { id: state.me.id, name: state.me.name }; s.v++; return s; });
   });
   app.querySelectorAll("[data-stand]").forEach((b) => b.onclick = () => mutate((s) => { s.seats = s.seats.map((x) => (x && x.id === state.me.id ? null : x)); s.v++; return s; }));
-  $("#start").onclick = () => mutate((s) => { if (s.status !== "lobby" || !s.seats.every(Boolean)) throw new Error("Faltan jugadores."); return deal(s); });
+  app.querySelectorAll("[data-addbot]").forEach((b) => b.onclick = () => actions.addBot(+b.dataset.addbot));
+  app.querySelectorAll("[data-unbot]").forEach((b) => b.onclick = () => actions.removeBot(+b.dataset.unbot));
+  if (seat >= 0) app.querySelectorAll("[data-lvl]").forEach((b) => b.onclick = () => { const [id, l] = b.dataset.lvl.split(":"); actions.setOnlineBotLevel(+id.replace("bot", ""), +l); });
+  $("#start").onclick = () => mutate((s) => {
+    if (s.status !== "lobby" || !s.seats.every(Boolean)) throw new Error("Faltan jugadores.");
+    if (!actions.hasPerson(s)) throw new Error("Hace falta al menos una persona sentada.");
+    return deal(s);
+  });
   $("#del")?.addEventListener("click", () => { if ($("#del").dataset.armed) { mutate(() => null).then(leave); } else { $("#del").dataset.armed = "1"; $("#del").textContent = "Toca otra vez para borrar"; } });
   $("#modal").innerHTML = "";
 }

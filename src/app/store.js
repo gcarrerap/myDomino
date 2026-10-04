@@ -1,5 +1,5 @@
 // Estado de la app: un solo objeto, dueño de todo lo que antes eran variables globales de index.html.
-// Las acciones (actions.js, practice.js, clock.js) lo cambian y llaman a notify(); la interfaz se suscribe
+// Las acciones (actions.js, bots.js, clock.js) lo cambian y llaman a notify(); la interfaz se suscribe
 // con subscribe() y vuelve a dibujar. Los valores iniciales se leen de las preferencias del dispositivo.
 import { ls } from "../services/index.js";
 import { speculate } from "../ai/index.js";

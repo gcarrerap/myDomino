@@ -73,7 +73,7 @@ export function renderTables() {
     const filled = t.seats.filter(Boolean).length, mine = t.seats.some((s) => s && s.id === state.me.id);
     const st = t.status === "lobby" ? `${filled}/${t.config.n} sentados` : t.status === "gameover" ? "Partida terminada" : `Mano ${t.handNo}`;
     return `<div class="trow"><div><div class="code">${esc(t.code)}</div><div class="meta">${esc(modeLabel(t.config))} · ${st}</div>
-      <div class="meta">${t.seats.filter(Boolean).map((s) => esc(s.name)).join(", ") || "Sin jugadores"}</div></div>
+      <div class="meta">${t.seats.filter(Boolean).map((s) => esc(s.name) + (s.bot ? " (compu)" : "")).join(", ") || "Sin jugadores"}</div></div>
       <button data-open="${esc(t.code)}" class="${mine ? "primary" : ""}">${mine ? "Volver" : "Entrar"}</button></div>`;
   }).join("");
   box.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => openTable(b.dataset.open));

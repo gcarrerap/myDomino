@@ -2,8 +2,8 @@
 // la interfaz solo dibuja y traduce clics en estas acciones.
 import { newTable, deal, pts } from "../engine/index.js";
 import { ls, initFirebase, signInWithGoogle, signOut, SKIP, makeDb, watchTableList, watchTable, saveNewTable, updateTable } from "../services/index.js";
-import { state, notify, isGoogle, turnKey } from "./store.js";
-import { BOT_NAMES } from "./practice.js";
+import { state, notify, isGoogle, turnKey, mySeat } from "./store.js";
+import { BOT_NAMES } from "./bots.js";
 import { runAI } from "./ai-client.js";
 import { cleanupEmptyTables, CLEANUP_EVERY_MS } from "./cleanup.js";
 
@@ -80,6 +80,31 @@ export async function createTable() {
   try { await saveNewTable(state.db, st); openTable(code); }
   catch (e) { state.view.err = e.code === "permission-denied" ? "No hay permiso para crear mesas." : e.code === "resource-exhausted" ? "Se alcanzó el límite gratis de hoy. Intenta mañana." : "No se pudo crear la mesa."; notify(); }
 }
+
+// ---------- La compu en mesas en línea (antes de repartir) ----------
+// Cualquier jugador sentado puede agregarla, quitarla o cambiarle el nivel. La mueve el teléfono de una persona
+// sentada (ver bots.js), por eso para repartir hace falta al menos una persona.
+function botName(seats) {
+  const used = new Set(seats.filter(Boolean).map((s) => s.name));
+  return BOT_NAMES.find((n) => !used.has(n)) || `Compu ${seats.filter((s) => s && s.bot).length + 1}`;
+}
+function editSeats(fn) {
+  return mutate((s) => {
+    if (s.status !== "lobby") throw new Error("La partida ya empezó.");
+    if (mySeat(s) < 0) throw new Error("Siéntate primero.");
+    fn(s); s.v++; return s;
+  });
+}
+export function addBot(i, level = 2) {
+  return editSeats((s) => { if (s.seats[i]) throw new Error("Ese asiento ya lo tomaron."); s.seats[i] = { id: "bot" + i, name: botName(s.seats), level, bot: true }; });
+}
+export function removeBot(i) {
+  return editSeats((s) => { if (!(s.seats[i] && s.seats[i].bot)) throw new Error("En ese asiento no está la compu."); s.seats[i] = null; });
+}
+export function setOnlineBotLevel(i, level) {
+  return editSeats((s) => { if (!(s.seats[i] && s.seats[i].bot)) throw new Error("En ese asiento no está la compu."); s.seats[i] = { ...s.seats[i], level }; });
+}
+export const hasPerson = (st) => st.seats.some((s) => s && !s.bot);
 
 export function startPractice() {
   let st = newTable("PRÁCTICA", { ...state.config }, state.me.id);
