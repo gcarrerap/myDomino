@@ -41,8 +41,8 @@ export function pushLog(log, msg) { return [...(log || []), msg].slice(-12); }
 export const nextSeat = (st, s) => (s + 1) % st.config.n;
 export const nameOf = (st, s) => (st.seats[s] && st.seats[s].name) || `Jugador ${s + 1}`;
 
-// Mesa en línea abandonada antes de repartir: nadie sentado
-export const isEmptyTable = (st) => st.status === "lobby" && st.seats.every((s) => !s);
+// Mesa en línea abandonada antes de repartir: ninguna persona sentada (la compu sola no cuenta)
+export const isEmptyTable = (st) => st.status === "lobby" && st.seats.every((s) => !s || s.bot);
 
 export function newGame(st) {
   return { ...st, status: "lobby", scores: Array(nScores(st.config)).fill(0), handNo: 0, lastWinner: null, hand: null, result: null, log: pushLog(st.log, "Nueva partida"), v: st.v + 1 };

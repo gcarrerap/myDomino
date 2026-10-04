@@ -86,7 +86,7 @@ myDomino/
 │   ├── app/                   # estado y casos de uso de la app
 │   │   ├── store.js           # state (view, tableState, config, me, db…), subscribe/notify y derivados (mySeat, turnKey, specFor…)
 │   │   ├── actions.js         # start, openTable, mutate, createTable, startPractice, leave, setView, preferencias, mano, notas, askAdvice
-│   │   ├── practice.js        # botActor, scheduleBot, openDelayMs (bots en modo práctica)
+│   │   ├── bots.js            # isBotSeat, botRole, botActor, scheduleBot, openDelayMs: la compu en práctica y en línea (#15)
 │   │   ├── clock.js           # tickClock: reloj de turno (la interfaz solo lo pinta)
 │   │   ├── ai-client.js       # runAI: pide cálculos al worker; si no hay worker, calcula aquí
 │   │   ├── cleanup.js         # cleanupEmptyTables: borra mesas vacías tras 5 min sin cambios (#13)
@@ -115,6 +115,7 @@ myDomino/
     ├── app.test.js            # práctica, compu, reloj, preferencias, mano, notas, mesas en línea, consejo
     ├── ai-worker.test.js      # el worker, el cliente (con un Worker de mentira) y la app mientras la compu piensa
     ├── cleanup.test.js        # limpieza de mesas vacías
+    ├── online-bots.test.js    # la compu en mesas en línea: agregar/quitar, quién la mueve, respaldo, sin jugadas dobles
     └── fakes/firebase.js      # Firebase de mentira en memoria para las pruebas
 ```
 
@@ -159,6 +160,8 @@ Reglas concretas:
 **Store mínimo hecho a mano.** Un objeto con `get()`, `set(patch)` y `subscribe(fn)` alcanza; no hace falta un framework. `render()` se suscribe al store.
 
 **Pruebas con `node:test`.** Node ya trae corredor de pruebas; basta un `package.json` con `"type": "module"` y `"test": "node --test"` (Node encuentra solo los archivos `*.test.js`). No se agregan dependencias.
+
+**La compu en mesas en línea, sin servidor (#15).** No hay un servidor que ejecute la lógica del juego: Firestore guarda y sincroniza, y cada teléfono aplica las reglas. Por eso a la compu de una mesa en línea la mueve un teléfono: el de la persona sentada en el asiento más bajo; las demás personas sentadas son respaldo (esperan 4 s más). Cada jugada se guarda con una transacción que solo aplica si sigue siendo el mismo turno, así nunca cuentan dos jugadas para un turno. Limitación conocida: si ninguna persona de la mesa tiene el juego abierto, la compu no mueve. Un servidor propio (Cloud Functions o un servidor con WebSockets) resolvería eso, y también permitiría manos privadas y validar jugadas (§8); queda como decisión aparte.
 
 **Web Worker para la IA (fase 7a).** Con `ai/` aislado y puro, lo pesado puede correr en un Worker para que la pantalla no se congele. Medido en posiciones de media mano con 4 jugadores: `botMove` nivel 3 tarda ~280 ms (hasta ~540 ms) y `advise` ~260 ms (hasta ~460 ms); todo lo demás (`deduce`, `tracker`, `speculate`, `explainTile`, niveles 1 y 2) tarda de 0 a ~13 ms. Por eso **solo `botMove` y `advise` van al worker**: mover lo demás costaría más en copiar datos entre hilos de lo que ahorra. Si el navegador no puede crear el worker o este falla al cargar, `app/ai-client.js` calcula en el hilo principal como antes.
 
