@@ -98,17 +98,18 @@ myDomino/
 │   │
 │   └── ui/                    # vista: produce HTML/SVG y conecta eventos
 │       ├── dom.js             # $, esc
-│       ├── labels.js          # modeLabel, scoreLabels, teamColor, levelSeg, LEVEL_HELP
+│       ├── labels.js          # modeLabel, scoreLabels, teamColor, levelSeg, LEVEL_HELP, seatPos
 │       ├── render.js          # render() raíz: elige pantalla
 │       ├── clock.js           # tick: pinta el reloj de turno
 │       ├── svg/
 │       │   ├── tile.js        # PIPS, half, tileSVG, tileG
 │       │   └── chain.js       # layoutChain, layoutChainAt, chainSVG
 │       ├── screens/
-│       │   ├── lobby.js       # renderLobby, renderTables, authBox, needName
-│       │   ├── seats.js       # renderSeats (escoger asiento antes de repartir)
-│       │   └── table.js       # renderTable (incluye tu mano: tocar, girar y arrastrar), seatPos
+│       │   ├── lobby.js       # renderLobby (variante A de #20): perfil, Jugar en línea, Practicar, mesas abiertas
+│       │   ├── seats.js       # renderSeats: asientos alrededor del paño, menú por asiento (#20)
+│       │   └── table.js       # renderTable (incluye tu mano: tocar, girar y arrastrar)
 │       └── components/
+│           ├── sheet.js       # ventanas y menús: openOverlay, closeOverlay, renderSheet; "atrás" y Esc los cierran (#20)
 │           ├── result.js      # renderResult
 │           ├── advice.js      # renderAdvice
 │           └── tracker.js     # renderTracker, tileDetail
@@ -185,6 +186,12 @@ Cada fase es un PR independiente. Al terminar cada una, el juego se prueba a man
 | 6 ✅ | Dividir la UI en `ui/screens` y `ui/components`; que la UI importe del motor y la IA en vez de usar `window.E`, y quitar el `<script>` que lo arma. `index.html` queda en 20 líneas y carga `src/main.js`. Diferencias con la propuesta: `labels.js` reúne textos compartidos por lobby, mesa y registro; `screens/seats.js` y `components/result.js` son archivos propios; el manejo de tu mano (tocar, girar, arrastrar) se queda dentro de `screens/table.js` porque depende de las jugadas válidas que calcula esa pantalla; `askAdvice` y las notas ya vivían en `app/actions.js` desde la fase 5. Para no crear ciclos, las pantallas piden redibujar con `notify()` de `app/` en lugar de importar `render`. | bajo |
 | 7a ✅ | IA en Web Worker: `ai/worker.js` y `app/ai-client.js`; la compu Avanzada y el consejo se calculan en un hilo aparte (ver §5). En una partida de práctica con las tres compus en Avanzado y pidiendo consejo cada turno, el hilo de la pantalla pasó de 21 bloqueos (el más largo de 817 ms, 6.6 s en total) a ninguno. Se borraron los estilos sobrantes de una tarjeta "Opus" que ya no existía. | medio |
 | 7b ✅ | En lugar del SDK modular (que desde el CDN pesa más, ver §5): cargar el SDK compat después de dibujar, no en el `<head>`. Con el CDN tardando 3 s, el lobby aparece a los 0.3 s en vez de a los 3.5 s; el modo en línea queda listo ~0.15 s después que antes. | bajo |
+
+### Interfaz sin scroll (#20)
+
+- **Parte 1 ✅:** pantalla de inicio (variante A del diseño), ventanas de "Nueva mesa", "Practicar" y "Tu perfil", y la pantalla de asientos con un menú por asiento. Ninguna pantalla se desplaza; si hay muchas mesas, solo se desplaza la lista.
+- **Ventanas y el botón "atrás":** lo abierto vive en `state.view.sheet` / `state.view.seatMenu`. Abrir agrega una entrada al historial (`pushState`), así "atrás" cierra la ventana en lugar de salir del juego; ✕, tocar fuera y Esc pasan por el mismo `history.back()`. Como `history.back()` no es inmediato, `components/sheet.js` no lo vuelve a llamar hasta recibir `popstate` (si no, dos cierres seguidos sacaban al usuario del juego).
+- **Parte 2 (pendiente):** pasar a la misma ventana el menú de la partida, el registro, el consejo y el resultado.
 
 ### Pendientes conocidos (fuera de las fases)
 

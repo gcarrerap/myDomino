@@ -17,6 +17,8 @@ Está hecho con HTML, CSS y JavaScript en módulos, sin dependencias ni paso de 
 - **Notas:** marca una ficha de otro jugador como "creo que sí la tiene" o "creo que no".
 - **Tu mano:** toca una ficha para girarla y arrástrala para acomodarla.
 - **Cuenta con Google (opcional):** entras con Google y eres el mismo jugador en cualquier dispositivo. Si no, juegas como invitado.
+- **Sin scroll:** cada pantalla cabe completa en el teléfono. Las opciones se abren en ventanas que suben desde abajo y se cierran con ✕, tocando fuera o con el botón "atrás" del teléfono.
+- **Escoger asiento alrededor de la mesa:** tocas un asiento para sentarte, agregar a la compu (con su nivel), cambiarle el nivel o quitarla.
 - **Tema claro y oscuro,** según la configuración del sistema.
 
 ## Modos de juego
@@ -122,7 +124,7 @@ myDomino/
 │   ├── reset.css       # reset mínimo de la página
 │   ├── tokens.css      # colores, tipografía y tema claro/oscuro
 │   ├── base.css        # paneles, formularios y botones
-│   ├── lobby.css       # lista de mesas
+│   ├── lobby.css       # pantalla de inicio y mesas abiertas
 │   └── table.css       # mesa, registro, consejo, tu mano, resultado y menú
 ├── src/
 │   ├── main.js         # arranque
@@ -168,7 +170,7 @@ myDomino/
 │       ├── clock.js       # pinta el reloj de turno
 │       ├── svg/           # fichas y la cadena en la mesa
 │       ├── screens/       # lobby, escoger asiento, mesa de juego (con tu mano)
-│       └── components/    # registro, consejo y resultado
+│       └── components/    # ventanas (sheet), registro, consejo y resultado
 ├── tests/
 │   ├── engine.test.js  # pruebas del motor
 │   ├── ai.test.js      # pruebas de la IA

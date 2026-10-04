@@ -25,3 +25,12 @@ export function scoreLabels(st) {
 }
 
 export const teamColor = (t) => (t === 0 ? "var(--ta)" : "var(--tb)");
+
+// Posición de cada jugador en la mesa, vista desde mí: abajo yo; el turno pasa a la derecha, luego arriba, luego izquierda.
+export function seatPos(st, seat, s) {
+  const n = st.config.n, k = (s - (seat < 0 ? 0 : seat) + n) % n;
+  if (k === 0) return "bottom";
+  if (n === 2) return "top";
+  if (n === 3) return k === 1 ? "right" : "left";
+  return ["bottom", "right", "top", "left"][k];
+}
