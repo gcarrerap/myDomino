@@ -28,14 +28,14 @@ export function inferenceEvents(st, viewer) {
   for (const ev of evs) ev.later = hist.filter((e, j) => j >= ev.i && e.a === "play" && e.s === ev.s).map((e) => e.tile);
   return evs;
 }
-export function logLikelihood(evs, handOf, parts) {
+export function logLikelihood(evs, handOf, parts, beta = TUNE.beta) {
   let ll = 0;
   for (const ev of evs) {
     if (parts) parts.push(0);
     const hand = [...handOf(ev.s), ...ev.later];
     const opts = optionsAt(hand, ev.before);
     if (opts.length <= 1) continue;
-    const sc = opts.map((o) => TUNE.beta * heurScore(hand, o.tile, o.side, ev.before, ev.board, ev.partnerTiles));
+    const sc = opts.map((o) => beta * heurScore(hand, o.tile, o.side, ev.before, ev.board, ev.partnerTiles));
     const mx = Math.max(...sc), z = sc.reduce((q, v) => q + Math.exp(v - mx), 0);
     const k = opts.findIndex((o) => o.tile === ev.tile && (o.side === ev.side || o.side === "X"));
     if (k < 0) continue;
@@ -45,13 +45,13 @@ export function logLikelihood(evs, handOf, parts) {
   return ll;
 }
 // Repartos imaginados con su peso (normalizados). n = cuántos se generan.
-export function weightedAssigns(st, viewer, n, ded, rnd = Math.random) {
+export function weightedAssigns(st, viewer, n, ded, rnd = Math.random, beta = TUNE.beta) {
   ded = ded || deduce(st, viewer);
   const evs = inferenceEvents(st, viewer), out = [];
   for (let k = 0; k < n; k++) {
     const asg = sampleAssign(st, viewer, ded, rnd); if (!asg) continue;
     const parts = [];
-    const ll = evs.length ? logLikelihood(evs, (s) => asg[s] || [], parts) : 0;
+    const ll = evs.length ? logLikelihood(evs, (s) => asg[s] || [], parts, beta) : 0;
     out.push({ asg, ll, parts });
   }
   if (!out.length) return { list: [], ess: 0, events: evs.length, evs };
@@ -62,8 +62,8 @@ export function weightedAssigns(st, viewer, n, ded, rnd = Math.random) {
   return { list: out, ess, events: evs.length, evs };
 }
 // Probabilidad especulativa de que cada ficha no vista esté con cada jugador (o en el pozo)
-export function speculate(st, viewer, n = TUNE.specN) {
-  const ded = deduce(st, viewer), { list, ess, events, evs } = weightedAssigns(st, viewer, n, ded);
+export function speculate(st, viewer, n = TUNE.specN, beta = TUNE.beta) {
+  const ded = deduce(st, viewer), { list, ess, events, evs } = weightedAssigns(st, viewer, n, ded, Math.random, beta);
   const prob = {};
   for (const t of Object.keys(ded.possible)) prob[t] = {};
   for (const { asg, w } of list) for (const id of Object.keys(asg)) for (const t of asg[id]) prob[t][id] = (prob[t][id] || 0) + w;

@@ -10,6 +10,8 @@ import { state, notify, timerOn, turnKey, mySeat } from "./store.js";
 import { runAI } from "./ai-client.js";
 
 export const BOT_NAMES = ["Lupe", "Toño", "Chuy"];
+// Perfil con que juega la compu de un asiento (#27): su perfil si lo tiene ("b07"), o el de su nivel (1-3)
+export const botProfileOf = (seat) => (seat && seat.perfil) || (seat && seat.level) || 1;
 export const BACKUP_MS = 4000;
 
 // ¿Ese asiento lo juega la compu?
@@ -65,7 +67,7 @@ export function scheduleBot() {
       decide = (s) => play(s, a.seat, a.tile, "X");
     } else {
       let m;
-      try { m = await runAI("botMove", st, a.seat, (st.seats[a.seat] && st.seats[a.seat].level) || 1); }
+      try { m = await runAI("botMove", st, a.seat, botProfileOf(st.seats[a.seat])); }
       catch (e) { console.warn("La compu no pudo decidir:", e); m = null; }
       if (state.botTimer !== id) return; // saliste de la mesa mientras pensaba
       if (!m) { state.botTimer = null; return; }

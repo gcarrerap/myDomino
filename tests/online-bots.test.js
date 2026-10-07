@@ -51,9 +51,11 @@ test("agregar la compu en un asiento libre, cambiarle el nivel y quitarla", asyn
   await table(4, ["me", null, null, null]);
   await actions.addBot(1); await actions.addBot(2); await actions.addBot(3); await settle();
   const seats = state.tableState.seats;
-  assert.deepEqual(seats.slice(1).map((s) => [s.name, s.bot, s.level]), [["Lupe", true, 2], ["Toño", true, 2], ["Chuy", true, 2]]);
-  await actions.setOnlineBotLevel(2, 3); await settle();
-  assert.equal(state.tableState.seats[2].level, 3);
+  assert.deepEqual(seats.slice(1).map((s) => [s.name, s.bot, s.level, s.perfil]), [["Lupe", true, 2, "b02"], ["Toño", true, 2, "b02"], ["Chuy", true, 2, "b02"]]);
+  await actions.setOnlineBotProfile(2, "b13"); await settle();
+  assert.deepEqual([state.tableState.seats[2].perfil, state.tableState.seats[2].level], ["b13", null]);
+  await actions.setOnlineBotProfile(2, 3); await settle();
+  assert.deepEqual([state.tableState.seats[2].perfil, state.tableState.seats[2].level], ["b03", 3]);
   await actions.removeBot(2); await settle();
   assert.equal(state.tableState.seats[2], null);
   await actions.addBot(2); await settle();

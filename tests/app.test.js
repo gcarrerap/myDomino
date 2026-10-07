@@ -22,7 +22,7 @@ function reset() {
   state.db = null; state.dbTried = false; state.authUser = null; state.unsubList = null; state.listCache = [];
   state.me = { id: state.deviceId, name: "" };
   state.config = { n: 4, teams: true, per: 7, timer: false };
-  state.botLevels = [2, 2, 2];
+  state.botLevels = ["b02", "b02", "b02"];
   renders = [];
 }
 beforeEach(reset);
@@ -38,7 +38,7 @@ test("el estado inicial sale de las preferencias del dispositivo", () => {
 // ---------- Práctica ----------
 
 test("practicar: tú en el asiento 1 y la compu en los demás, con sus niveles", () => {
-  state.me.name = "Memo"; state.botLevels = [1, 3, 2];
+  state.me.name = "Memo"; state.botLevels = ["b01", "b03", "b02"];
   actions.startPractice();
   const st = state.tableState;
   assert.equal(state.view.screen, "table");
@@ -46,6 +46,7 @@ test("practicar: tú en el asiento 1 y la compu en los demás, con sus niveles",
   assert.equal(st.status, "playing");
   assert.deepEqual(st.seats.map((s) => s.name), ["Memo", ...BOT_NAMES]);
   assert.deepEqual(st.seats.slice(1).map((s) => s.level), [1, 3, 2]);
+  assert.deepEqual(st.seats.slice(1).map((s) => s.perfil), ["b01", "b03", "b02"]);
   assert.equal(mySeat(st), 0);
   assert.ok(canReveal());
   assert.deepEqual(renders, ["all"]);
@@ -144,15 +145,20 @@ test("escoger jugadores ajusta el modo, sin perder el reloj", () => {
 test("las preferencias se guardan en el dispositivo", () => {
   actions.setTimer(true); assert.equal(mem.get("dom.timer"), "1");
   actions.setTimer(false); assert.equal(mem.get("dom.timer"), "0");
-  actions.setBotLevel(1, 3); assert.equal(mem.get("dom.botLevels"), "[2,3,2]");
+  actions.setBotProfile(1, "b13"); assert.equal(mem.get("dom.botLevels"), '["b02","b13","b02"]');
+  actions.setBotProfile(1, 3); assert.equal(mem.get("dom.botLevels"), '["b02","b03","b02"]', "un nivel de antes se convierte a su bot");
+  actions.setBotProfile(1, "no-existe"); assert.equal(state.botLevels[1], "b02");
   actions.setName("  Memo  "); assert.equal(state.me.name, "Memo"); assert.equal(mem.get("dom.name"), "Memo");
 });
 
-test("cambiar el nivel de una compu en plena práctica también cambia el de las siguientes", () => {
+test("cambiar el bot de una compu en plena práctica también cambia el de las siguientes", () => {
   actions.startPractice();
-  actions.setSeatLevel(2, 1);
-  assert.equal(state.tableState.seats[2].level, 1);
-  assert.deepEqual(state.botLevels, [2, 1, 2]);
+  actions.setSeatProfile(2, "b07");
+  assert.equal(state.tableState.seats[2].perfil, "b07");
+  assert.equal(state.tableState.seats[2].level, null, "los bots nuevos no tienen nivel de antes");
+  assert.deepEqual(state.botLevels, ["b02", "b07", "b02"]);
+  actions.setSeatProfile(1, "b01");
+  assert.deepEqual([state.tableState.seats[1].perfil, state.tableState.seats[1].level], ["b01", 1]);
 });
 
 // ---------- Tu mano y notas ----------
@@ -267,4 +273,11 @@ test("el consejo se calcula para el turno en curso", async () => {
     assert.ok(d && !d.error);
     assert.equal(d.levels.length, 3);
   } finally { timers.reset(); }
+});
+
+test("las preferencias de antes (niveles 1-3) se convierten a bots", async () => {
+  const { normBot, botSeatFields } = await import("../src/app/store.js");
+  assert.deepEqual([1, 2, 3, "b07", "zzz", null].map(normBot), ["b01", "b02", "b03", "b07", "b02", "b02"]);
+  assert.deepEqual(botSeatFields(3), { perfil: "b03", level: 3 });
+  assert.deepEqual(botSeatFields("b11"), { perfil: "b11", level: null });
 });

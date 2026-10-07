@@ -4,7 +4,7 @@ import { explainTile, tracker } from "../../ai/index.js";
 import { actions, canReveal, noteKey, specFor, state } from "../../app/index.js";
 import { $, esc } from "../dom.js";
 import { closeOverlay, renderSheet } from "./sheet.js";
-import { levelSeg } from "../labels.js";
+import { botSelect, botHelp } from "../labels.js";
 import { tileSVG } from "../svg/tile.js";
 
 // Explicación del porcentaje de una ficha (al tocarla en el registro)
@@ -69,7 +69,7 @@ export function renderTracker(st, seat) {
     } else calib = `<p class="reveal-note">Modo evaluación: todas las fichas de ${esc(name)} ya están marcadas como seguras.</p>`;
   }
   renderSheet(m, "track-" + t, `Registro de ${name}`, `
-    ${state.view.practice && st.seats[t] && st.seats[t].level ? `<div class="cpurow"><span class="cpuname">Nivel</span>${levelSeg("seat" + t, st.seats[t].level)}</div>` : ""}
+    ${state.view.practice && t !== 0 && st.seats[t] ? `<div class="cpurow bot"><span class="cpuname">Bot</span>${botSelect("seat" + t, st.seats[t].perfil || st.seats[t].level || 2, "Bot de " + name)}<span class="hint bothelp">${botHelp(st.seats[t].perfil || st.seats[t].level || 2)}</span></div>` : ""}
     <p class="hint">Tiene <b>${tr.count}</b> ficha${tr.count === 1 ? "" : "s"}. ${exact ? "" : `Puede tener cualquiera de las que se ven completas.`}
       ${hasPozo(st.config) && h.pozo.length ? ` Hay ${h.pozo.length} en el pozo.` : ""}</p>
     ${tr.played.length ? `<p class="trk-played">Tiró: ${tr.played.map((x) => `<b>${x}</b>`).join(" ")}</p>` : ""}
@@ -93,10 +93,7 @@ export function renderTracker(st, seat) {
       <span><span class="trk-t maybe note-no">${tileSVG(6, 1, false, 9)}</span> tu nota: creo que no</span></div></details>
     <button class="primary" id="trkclose">Cerrar</button>`);
   $("#trkclose").onclick = closeOverlay;
-  m.querySelectorAll("[data-lvl]").forEach((b) => b.onclick = () => {
-    const [id, l] = b.dataset.lvl.split(":");
-    actions.setSeatLevel(+id.replace("seat", ""), +l);
-  });
+  m.querySelectorAll("select[data-bot]").forEach((b) => b.onchange = () => actions.setSeatProfile(+b.dataset.bot.replace("seat", ""), b.value));
   m.querySelectorAll("[data-setnote]").forEach((b) => b.onclick = () => {
     const [tile, val] = b.dataset.setnote.split("|"), k = noteKey(st, t, tile);
     actions.setNote(k, val);

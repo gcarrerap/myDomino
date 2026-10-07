@@ -75,6 +75,9 @@ span.trk-t{cursor:default;padding:1px}
 .cpurow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .cpuname{font-weight:700;font-size:14px}
 .seg.lvl button{min-height:34px;padding:5px 10px;font-size:13px}
+.botsel{font:inherit;font-size:14px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:100%;min-height:44px}
+.cpurow.bot{flex-direction:column;align-items:stretch;gap:4px}
+.bothelp{margin:0;font-size:12px}
 .opp .nm{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .opp .ct{font-size:12px;color:var(--felt-muted)}
 .backs{display:flex;gap:2px;flex-wrap:wrap}
