@@ -75,7 +75,14 @@ myDomino/
 │   │   ├── deduce.js          # deduce, tracker, sampleAssign (qué fichas puede tener cada quien)
 │   │   ├── speculate.js       # inferenceEvents, logLikelihood, weightedAssigns, speculate, explainTile
 │   │   ├── search.js          # sampleWorld, rollout, rolloutFull, worldsFor, monteCarloMove
-│   │   ├── bots.js            # openingPlan, botMove (por nivel)
+│   │   ├── bots.js            # botMove(st, seat, perfil o nivel): decide con los criterios del perfil (#27)
+│   │   ├── opening.js         # openingPlan: con qué salir y qué tan bueno es el juego
+│   │   ├── criteria.js        # CRITERIA (biblioteca de criterios), modificadores de situación, scoreOptions (#27)
+│   │   ├── mind.js            # recall (memoria del bot), knowledge (deducción 0-3 y sospechas) (#27)
+│   │   ├── profiles.js        # PROFILES: Bot 01-20 (estilo × capacidad mental), getProfile, profileLabel (#27)
+│   │   ├── decide.js          # factor aleatorio: ventana de duda y temperatura (#27)
+│   │   ├── tournament.js      # playGame, match, fingerprint: torneo entre perfiles (#27)
+│   │   ├── rng.js             # hash32, unitFor, seededRandom (#27)
 │   │   ├── advice.js          # advise
 │   │   ├── worker.js          # Web Worker: corre botMove y advise en un hilo aparte
 │   │   └── index.js           # reexporta la API de la IA
@@ -119,7 +126,8 @@ myDomino/
 │           └── tracker.js     # renderTracker, tileDetail
 ├── firestore.rules            # reglas de Firestore: mesas y manos grabadas (#25)
 ├── scripts/
-│   └── export-partidas.mjs    # descarga las manos grabadas a JSONL (#25); no es parte del juego publicado
+│   ├── export-partidas.mjs    # descarga las manos grabadas a JSONL (#25); no es parte del juego publicado
+│   └── torneo.mjs             # torneo entre perfiles de la compu: fuerza y huella de estilo (#27)
 └── tests/
     ├── engine.test.js         # reparto, jugadas, tranque, puntuación por modo
     ├── ai.test.js             # los bots solo devuelven jugadas legales y no ven fichas ajenas
@@ -128,6 +136,8 @@ myDomino/
     ├── ai-worker.test.js      # el worker, el cliente (con un Worker de mentira) y la app mientras la compu piensa
     ├── cleanup.test.js        # limpieza de mesas abandonadas
     ├── updates.test.js        # service worker y aviso de versión nueva
+    ├── profiles.test.js       # perfiles: compatibilidad, memoria, deducción, criterios, azar, torneo (#27)
+    ├── fixtures/legacy-bots.js # copia congelada de los bots de antes de #27, para la prueba de compatibilidad
     ├── record.test.js         # grabación: registro de cada mano, reproducción, cola sin conexión, sin duplicados (#25)
     ├── online-bots.test.js    # la compu en mesas en línea: agregar/quitar, quién la mueve, respaldo, sin jugadas dobles
     └── fakes/firebase.js      # Firebase de mentira en memoria para las pruebas
@@ -228,6 +238,24 @@ Cada mano que termina se graba en Firestore para entrenar y evaluar el motor de 
 - **Lectura:** los teléfonos no pueden leer, cambiar ni borrar la colección. `scripts/export-partidas.mjs` las descarga con una cuenta de servicio y las agrupa en partidas (`groupGames`): una por línea, marcada `finished` o `abandoned`.
 - **Reproducir:** `replayHand(registro)` vuelve a jugar la mano con las reglas del motor y llega al mismo resultado; las pruebas lo verifican.
 - **Límite:** solo se graban manos terminadas. Si se abandona una mano a la mitad, esa mano no queda (la partida aparece como `abandoned`).
+
+### Perfiles de la compu (#27)
+
+Todos los bots usan los mismos criterios de decisión. Lo que cambia entre uno y otro es el perfil, que es solo datos (`ai/profiles.js`) y tiene dos ejes independientes:
+
+- **Estilo:** cuánto pesa cada criterio de `ai/criteria.js` (documento "Tácticas del dominó por parejas": A mi mano, B mi pareja, C rivales, D mesa, F resultado), qué tanto reacciona a la situación (modificadores de **peligro**, **fase**, **marcador** y **fuerza de la mano**: peso × (1 + sensibilidad × (factor − 1))) y su factor aleatorio.
+- **Capacidad mental** (`ai/mind.js`):
+  - **Memoria:** cuánto retiene, qué tan rápido olvida, qué recuerda mejor (pases, mulas, fichas altas, pareja, salida), si cuenta lo jugado (`exacta`, `memoria` o `no`) y si recuerda quién tiró cada ficha. Olvidar es reproducible: el umbral de cada evento sale de un hash de partida, mano, asiento y evento, y como el recuerdo solo baja con el tiempo, lo olvidado no regresa. El bot nunca recuerda algo falso: solo menos.
+  - **Deducción** de 0 a 3 (solo puntas; cuenta; pases; eliminación cruzada exacta con `possibleHolders`, el núcleo de `deduce`). Las fichas de la mesa que ya no tiene contadas van a un poseedor "mesa", así que la deducción sigue siendo correcta.
+  - **Análisis:** sospechas (`speculate`, solo con memoria perfecta), anticipación (a cuántos jugadores siguientes mira) y cálculo (Monte Carlo).
+
+**Factor aleatorio** (`ai/decide.js`): entran al sorteo solo las jugadas dentro de una *ventana de duda* debajo de la mejor, medida con la escala típica de puntaje de cada perfil (mediana de mejor − segunda, `scripts/torneo.mjs --escala`). Entre esas se escoge con softmax de temperatura baja. Una jugada claramente mejor sale siempre. Ningún perfil es determinista, y en simulaciones y pruebas el azar se puede fijar.
+
+**Catálogo:** Bot 01-03 son los niveles de siempre y, con el azar apagado, deciden exactamente igual que antes (`tests/fixtures/legacy-bots.js`). Bot 04-20 combinan 8 estilos (descargador, controlador, escudero, castigador, contador, apostador, completo, equilibrado) con 5 capacidades (distraído, casual, atento, experto, maestro). Un asiento de la compu juega con `seat.perfil` si lo tiene, o con el perfil de su `level`.
+
+**Torneo** (`ai/tournament.js`, `scripts/torneo.mjs`): cada perfil juega en pareja contra el Intermedio, alternando asientos, y se reporta qué tanto gana y su huella de estilo (mula en las primeras jugadas, cuadres, puntos soltados, cuántas veces hace pasar al siguiente, cuántas veces corta el número de su pareja).
+
+Hallazgo al migrar: en el `botMove` anterior, la rama de anticipación con `TUNE.blk`, `fr`, `riv`, `urg`, `w2`, `w3` y `pn` nunca se ejecutaba (el nivel 3 salía antes, por el Monte Carlo). Esa lógica ahora es el criterio `anticipacion`, que usan los perfiles atento, experto y maestro.
 
 ## 7. Consecuencias
 

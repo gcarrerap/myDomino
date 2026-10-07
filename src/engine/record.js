@@ -24,7 +24,7 @@ export function buildHandRecord(st, ctx = {}) {
   const isBot = ctx.isBot || ((s) => !!(st.seats[s] && st.seats[s].bot));
   const players = st.seats.map((p, s) => {
     const bot = isBot(s);
-    return { seat: s, name: (p && p.name) || null, id: (p && p.id) || null, bot, level: bot ? (p && p.level) || 1 : null };
+    return { seat: s, name: (p && p.name) || null, id: (p && p.id) || null, bot, level: bot ? (p && p.level) || 1 : null, perfil: bot ? (p && p.perfil) || null : null };
   });
   let prevT = h.start.t;
   const events = (h.history || []).map((e) => {

@@ -15,17 +15,25 @@ export function deduce(st, viewer) {
   const holders = [];
   h.hands.forEach((hh, s) => {
     if (s === viewer) return;
-    const lk = (h.lacks && h.lacks[s]) || [];
-    holders.push({ id: s, cap: hh.length, ok: (t) => { const [x, y] = P(t); return !lk.includes(x) && !lk.includes(y); } });
+    holders.push({ id: s, cap: hh.length, lacks: (h.lacks && h.lacks[s]) || [] });
   });
-  if (h.pozo.length) holders.push({ id: "pozo", cap: h.pozo.length, ok: () => true });
-  const feasible = (tiles, caps) => { // emparejamiento bipartito con capacidades
+  if (h.pozo.length) holders.push({ id: "pozo", cap: h.pozo.length, lacks: [] });
+  return { known, possible: possibleHolders(unknown, holders) };
+}
+
+// Núcleo de la deducción: reparte las fichas desconocidas entre quienes pueden tenerlas.
+// holders: [{ id, cap: cuántas fichas tiene, lacks: números que seguro no tiene }]. La suma de cap debe ser igual al
+// número de fichas desconocidas. Devuelve { ficha: [ids que de verdad pueden tenerla] }: una ficha solo puede estar
+// con quien deje un reparto completo posible (emparejamiento bipartito con capacidades).
+export function possibleHolders(unknown, holders) {
+  const okFor = holders.map((H) => (t) => { const [x, y] = P(t); return !H.lacks.includes(x) && !H.lacks.includes(y); });
+  const feasible = (tiles, caps) => {
     const slots = []; holders.forEach((H, i) => { for (let k = 0; k < caps[i]; k++) slots.push(i); });
     if (slots.length !== tiles.length) return false;
     const owner = Array(slots.length).fill(-1);
     const tryT = (ti, seen) => {
       for (let j = 0; j < slots.length; j++) {
-        if (seen[j] || !holders[slots[j]].ok(tiles[ti])) continue;
+        if (seen[j] || !okFor[slots[j]](tiles[ti])) continue;
         seen[j] = true;
         if (owner[j] < 0 || tryT(owner[j], seen)) { owner[j] = ti; return true; }
       }
@@ -40,12 +48,12 @@ export function deduce(st, viewer) {
     possible[t] = [];
     const rest = unknown.filter((x) => x !== t);
     holders.forEach((H, i) => {
-      if (!H.ok(t) || caps[i] === 0) return;
+      if (!okFor[i](t) || caps[i] === 0) return;
       const c2 = caps.slice(); c2[i]--;
       if (feasible(rest, c2)) possible[t].push(H.id);
     });
   }
-  return { known, possible };
+  return possible;
 }
 
 // Registro: fichas que un jugador todavía puede tener, desde la vista de "viewer"
