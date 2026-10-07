@@ -2,14 +2,20 @@
 // Las acciones (actions.js, bots.js, clock.js) lo cambian y llaman a notify(); la interfaz se suscribe
 // con subscribe() y vuelve a dibujar. Los valores iniciales se leen de las preferencias del dispositivo.
 import { ls } from "../services/index.js";
-import { speculate } from "../ai/index.js";
+import { speculate, PROFILES, getProfile } from "../ai/index.js";
+
+// Perfil válido a partir de un id ("b07") o de un nivel de antes (1-3); si no se reconoce, el Intermedio
+export const normBot = (v) => (typeof v === "string" ? (PROFILES[v] ? v : "b02") : [1, 2, 3, 4].includes(+v) ? getProfile(+v).id : "b02");
+// Cómo se guarda la compu en un asiento: perfil y, para teléfonos con una versión anterior, su nivel (si tiene)
+export const botSeatFields = (v) => { const p = getProfile(normBot(v)); return { perfil: p.id, level: p.nivel ?? null }; };
 
 const deviceId = ls.get("dom.dev") || ("d" + Math.random().toString(36).slice(2, 10));
 ls.set("dom.dev", deviceId);
 
+// Bot de cada compu en práctica (#27): id de perfil ("b02"). Antes se guardaba el nivel (1-3): se convierte.
 function loadBotLevels() {
-  let botLevels = [2, 2, 2];
-  try { const bl = JSON.parse(ls.get("dom.botLevels") || "null"); if (Array.isArray(bl) && bl.length === 3) botLevels = bl.map((x) => Math.min(3, Math.max(1, +x || 2))); } catch {}
+  let botLevels = ["b02", "b02", "b02"];
+  try { const bl = JSON.parse(ls.get("dom.botLevels") || "null"); if (Array.isArray(bl) && bl.length === 3) botLevels = bl.map(normBot); } catch {}
   return botLevels;
 }
 function loadArrangement() {
@@ -33,7 +39,7 @@ export const state = {
   listUpdated: {}, // por código de mesa: cuándo se guardó por última vez (ms)
   unsubTable: null, unsubList: null,
   config: { n: 4, teams: true, per: 7, timer: ls.get("dom.timer") !== "0" }, // modo para la siguiente mesa
-  botLevels: loadBotLevels(), // nivel de cada compu en práctica
+  botLevels: loadBotLevels(), // bot (id de perfil) de cada compu en práctica
   arr: loadArrangement(), // orden y giro de tu mano (solo en este teléfono)
   notes: loadNotes(), // tus notas del registro (solo en este teléfono)
   clock: { key: null, start: 0, fired: false }, // reloj del turno, medido desde que este teléfono vio el turno

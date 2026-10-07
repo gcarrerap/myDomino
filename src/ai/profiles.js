@@ -64,7 +64,7 @@ function build(id, estilo, capacidad) {
   const pesos = {}; for (const [k, v] of Object.entries(BASE)) pesos[k] = v * (S.mult[k] ?? 1);
   return {
     id, nombre: "Bot " + id.slice(1), estilo, capacidad,
-    desc: `${S.nombre} · ${C.nombre}`, detalle: `${S.desc}; ${C.desc}.`,
+    desc: `${S.nombre} · ${C.nombre}`, detalle: `${S.desc[0].toUpperCase()}${S.desc.slice(1)}; ${C.desc}.`,
     pesos, sensibilidad: { ...SENS, ...(S.sens || {}) }, mente: C.mente,
     azar: { ventana: S.azar.ventana * C.azarMult, temperatura: S.azar.temperatura * C.azarMult, escala: ESCALA[id] },
   };
@@ -80,13 +80,13 @@ const LEGACY = {
     azar: { ventana: 0.3, temperatura: 0.45 },
   },
   b02: {
-    id: "b02", nombre: "Bot 02", estilo: "equilibrado", capacidad: "atento", nivel: 2, desc: "Intermedio", detalle: "Además busca dominar: deja puntas donde quedan pocas fichas fuera de su mano, sigue los números de su pareja y decide si le conviene cerrar. Cuenta todo lo jugado.",
+    id: "b02", nombre: "Bot 02", estilo: "equilibrado", capacidad: "atento", nivel: 2, desc: "Intermedio", detalle: "Busca dominar: deja puntas donde quedan pocas fichas fuera de su mano, sigue los números de su pareja y decide si le conviene cerrar. Cuenta todo lo jugado.",
     pesos: { ...ZERO, dominar: 1e6, tranque: 300, puntos: 0.6, mula: 5, mayoria: 2.5, desempate: 1, bloqueo: 1.2, pareja: 1.5 },
     sensibilidad: { peligro: 1 }, mente: { memoria: PERFECT_MEMORY, deduccion: 1, anticipacion: 0, sospechas: null, calculo: 0 },
     azar: { ventana: 0.15, temperatura: 0.25 },
   },
   b03: {
-    id: "b03", nombre: "Bot 03", estilo: "equilibrado", capacidad: "maestro", nivel: 3, desc: "Avanzado", detalle: "Parte del tiro del intermedio y lo cambia si, al simular repartos que cuadran con lo que ha visto y con cómo ha tirado cada quien, otro tiro sale claramente mejor.",
+    id: "b03", nombre: "Bot 03", estilo: "equilibrado", capacidad: "maestro", nivel: 3, desc: "Avanzado", detalle: "Juega como el Intermedio, pero simula cada tiro y lo cambia si, al simular repartos que cuadran con lo que ha visto y con cómo ha tirado cada quien, otro tiro sale claramente mejor.",
     pesos: { ...ZERO, dominar: 1e6, tranque: 300, puntos: 0.6, mula: 5, mayoria: 2.5, desempate: 1, bloqueo: 1.2, pareja: 1.5 },
     sensibilidad: { peligro: 1 }, mente: { memoria: PERFECT_MEMORY, deduccion: 1, anticipacion: 0, sospechas: { beta: TUNE.beta, n: TUNE.specN }, calculo: TUNE.samples, inferirEnCalculo: true },
     azar: { ventana: 0.12, temperatura: 0.2 },

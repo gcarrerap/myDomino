@@ -2,7 +2,7 @@
 // la interfaz solo dibuja y traduce clics en estas acciones.
 import { newTable, deal, pts } from "../engine/index.js";
 import { ls, initFirebase, signInWithGoogle, signOut, SKIP, makeDb, watchTableList, watchTable, saveNewTable, updateTable } from "../services/index.js";
-import { state, notify, isGoogle, turnKey, mySeat } from "./store.js";
+import { state, notify, isGoogle, turnKey, mySeat, normBot, botSeatFields } from "./store.js";
 import { BOT_NAMES } from "./bots.js";
 import { runAI } from "./ai-client.js";
 import { cleanupInactiveTables, CLEANUP_EVERY_MS } from "./cleanup.js";
@@ -95,20 +95,21 @@ function editSeats(fn) {
     fn(s); s.v++; return s;
   });
 }
-export function addBot(i, level = 2) {
-  return editSeats((s) => { if (s.seats[i]) throw new Error("Ese asiento ya lo tomaron."); s.seats[i] = { id: "bot" + i, name: botName(s.seats), level, bot: true }; });
+// bot: id de perfil ("b07") o nivel de antes (1-3)
+export function addBot(i, bot = "b02") {
+  return editSeats((s) => { if (s.seats[i]) throw new Error("Ese asiento ya lo tomaron."); s.seats[i] = { id: "bot" + i, name: botName(s.seats), ...botSeatFields(bot), bot: true }; });
 }
 export function removeBot(i) {
   return editSeats((s) => { if (!(s.seats[i] && s.seats[i].bot)) throw new Error("En ese asiento no está la compu."); s.seats[i] = null; });
 }
-export function setOnlineBotLevel(i, level) {
-  return editSeats((s) => { if (!(s.seats[i] && s.seats[i].bot)) throw new Error("En ese asiento no está la compu."); s.seats[i] = { ...s.seats[i], level }; });
+export function setOnlineBotProfile(i, bot) {
+  return editSeats((s) => { if (!(s.seats[i] && s.seats[i].bot)) throw new Error("En ese asiento no está la compu."); s.seats[i] = { ...s.seats[i], ...botSeatFields(bot) }; });
 }
 export const hasPerson = (st) => st.seats.some((s) => s && !s.bot);
 
 export function startPractice() {
   let st = newTable("PRÁCTICA", { ...state.config }, state.me.id);
-  st.seats = st.seats.map((_, i) => (i === 0 ? { id: state.me.id, name: state.me.name || "Tú" } : { id: "bot" + i, name: BOT_NAMES[i - 1], level: state.botLevels[i - 1] }));
+  st.seats = st.seats.map((_, i) => (i === 0 ? { id: state.me.id, name: state.me.name || "Tú" } : { id: "bot" + i, name: BOT_NAMES[i - 1], ...botSeatFields(state.botLevels[i - 1]) }));
   st = deal(st);
   state.view = { screen: "table", code: st.code, practice: true, sel: null, err: "", track: null };
   state.tableState = st; notify();
@@ -136,12 +137,12 @@ export function setTimer(on) { state.config.timer = on; ls.set("dom.timer", on ?
 export function setTeams(on) { state.config.teams = on; notify(); }
 export function setPer(per) { state.config.per = per; notify(); }
 const saveLevels = () => ls.set("dom.botLevels", JSON.stringify(state.botLevels));
-// Nivel de la compu i (0-2) para las siguientes prácticas
-export function setBotLevel(i, level) { state.botLevels[i] = level; saveLevels(); notify(); }
-// Nivel de la compu sentada en el asiento seat de la práctica en curso (y para las siguientes)
-export function setSeatLevel(seat, level) {
-  state.tableState.seats[seat] = { ...state.tableState.seats[seat], level };
-  if (seat >= 1 && seat <= 3) { state.botLevels[seat - 1] = level; saveLevels(); }
+// Bot de la compu i (0-2) para las siguientes prácticas
+export function setBotProfile(i, bot) { state.botLevels[i] = normBot(bot); saveLevels(); notify(); }
+// Bot de la compu sentada en el asiento seat de la práctica en curso (y para las siguientes)
+export function setSeatProfile(seat, bot) {
+  state.tableState.seats[seat] = { ...state.tableState.seats[seat], ...botSeatFields(bot) };
+  if (seat >= 1 && seat <= 3) { state.botLevels[seat - 1] = normBot(bot); saveLevels(); }
   notify();
 }
 

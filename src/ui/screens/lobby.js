@@ -3,7 +3,7 @@
 import { TARGET } from "../../engine/index.js";
 import { BOT_NAMES, actions, isGoogle, state } from "../../app/index.js";
 import { $, esc } from "../dom.js";
-import { LEVEL_HELP, levelSeg, modeLabel } from "../labels.js";
+import { BOT_HELP, botSelect, botHelp, modeLabel } from "../labels.js";
 import { openOverlay, renderSheet } from "../components/sheet.js";
 const { createTable, googleIn, googleOut, openTable, startPractice } = actions;
 
@@ -56,13 +56,12 @@ function renderLobbySheet() {
   } else if (which === "practice") {
     const sheet = renderSheet(m, "practice", "Practicar contra la compu", `
       ${modeOptions(c)}
-      <span class="field-label">Nivel de la compu</span>
-      <div class="cpu">${Array.from({ length: c.n - 1 }, (_, i) => `<div class="cpurow"><span class="cpuname">${BOT_NAMES[i]}${c.teams ? (i === 1 ? " · tu pareja" : " · rival") : ""}</span>${levelSeg("lobby" + i, state.botLevels[i])}</div>`).join("")}</div>
-      <details class="help"><summary>¿Qué hace cada nivel?</summary>
-        <p class="hint"><b>Básico:</b> ${LEVEL_HELP[1]}</p><p class="hint"><b>Intermedio:</b> ${LEVEL_HELP[2]}</p><p class="hint"><b>Avanzado:</b> ${LEVEL_HELP[3]}</p></details>
+      <span class="field-label">La compu</span>
+      <div class="cpu">${Array.from({ length: c.n - 1 }, (_, i) => `<div class="cpurow bot"><span class="cpuname">${BOT_NAMES[i]}${c.teams ? (i === 1 ? " · tu pareja" : " · rival") : ""}</span>${botSelect("lobby" + i, state.botLevels[i], "Bot de " + BOT_NAMES[i])}<span class="hint bothelp">${botHelp(state.botLevels[i])}</span></div>`).join("")}</div>
+      <details class="help"><summary>¿Cómo son los bots?</summary><p class="hint">${BOT_HELP}</p></details>
       <button class="primary big-cta" id="practice">Empezar práctica</button>`);
     wireModeOptions(sheet);
-    sheet.querySelectorAll("[data-lvl]").forEach((b) => b.onclick = () => { const [id, l] = b.dataset.lvl.split(":"); actions.setBotLevel(+id.replace("lobby", ""), +l); });
+    sheet.querySelectorAll("select[data-bot]").forEach((b) => b.onchange = () => actions.setBotProfile(+b.dataset.bot.replace("lobby", ""), b.value));
     $("#practice").onclick = startPractice;
   } else if (which === "profile") {
     renderSheet(m, "profile", "Tu perfil", `${nameField("nm")}${authBox()}${err()}`);

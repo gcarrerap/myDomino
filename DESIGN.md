@@ -253,6 +253,8 @@ Todos los bots usan los mismos criterios de decisión. Lo que cambia entre uno y
 
 **Catálogo:** Bot 01-03 son los niveles de siempre y, con el azar apagado, deciden exactamente igual que antes (`tests/fixtures/legacy-bots.js`). Bot 04-20 combinan 8 estilos (descargador, controlador, escudero, castigador, contador, apostador, completo, equilibrado) con 5 capacidades (distraído, casual, atento, experto, maestro). Un asiento de la compu juega con `seat.perfil` si lo tiene, o con el perfil de su `level`.
 
+**Cómo se escoge:** en la práctica, en el menú de cada asiento en línea y en el registro de la práctica hay una lista (`<select>`) con los 20 bots: los tres de siempre arriba y los demás agrupados por capacidad, con una línea que explica al escogido. Se guarda `perfil` en el asiento, y `level` solo para Bot 01-03, para que un teléfono con la versión anterior siga mostrando su nivel. En el dispositivo, `dom.botLevels` ahora guarda ids de perfil; los niveles guardados antes (1-3) se convierten solos.
+
 **Torneo** (`ai/tournament.js`, `scripts/torneo.mjs`): cada perfil juega en pareja contra el Intermedio, alternando asientos, y se reporta qué tanto gana y su huella de estilo (mula en las primeras jugadas, cuadres, puntos soltados, cuántas veces hace pasar al siguiente, cuántas veces corta el número de su pareja).
 
 Hallazgo al migrar: en el `botMove` anterior, la rama de anticipación con `TUNE.blk`, `fr`, `riv`, `urg`, `w2`, `w3` y `pn` nunca se ejecutaba (el nivel 3 salía antes, por el Monte Carlo). Esa lógica ahora es el criterio `anticipacion`, que usan los perfiles atento, experto y maestro.

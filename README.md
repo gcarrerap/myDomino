@@ -11,14 +11,14 @@ Está hecho con HTML, CSS y JavaScript en módulos, sin dependencias ni paso de 
 - **Siempre la versión más reciente:** al abrir el juego se carga lo último que se publicó; si se publica algo con el juego abierto, aparece "Hay una versión nueva · Actualizar". La práctica funciona sin internet.
 - **Práctica contra la compu:** juegas solo contra bots, sin necesidad de otros jugadores.
 - **La compu en mesas en línea:** los asientos libres de una mesa en línea se pueden llenar con la compu (con su nivel), por ejemplo 2 personas contra 2 compus. A la compu la mueve el teléfono de quien está sentado en el asiento más bajo; si ese teléfono no está, el de alguien más.
-- **Tres niveles de bot:** Básico, Intermedio y Avanzado. Por dentro hay 20 perfiles de compu que comparten los mismos criterios de juego y se distinguen por su estilo y por cuánto recuerdan, deducen y analizan; los tres niveles son tres de ellos. Los bots solo usan información legítima: su propia mano, la mesa y lo que cada jugador ha tirado, comido o pasado (y de eso, lo que recuerdan). Nunca ven fichas ajenas.
+- **Tres niveles de bot:** Básico, Intermedio y Avanzado. Además hay otros 17 bots, que se escogen de una lista: comparten los mismos criterios de juego y se distinguen por su estilo y por cuánto recuerdan, deducen y analizan. Los bots solo usan información legítima: su propia mano, la mesa y lo que cada jugador ha tirado, comido o pasado (y de eso, lo que recuerdan). Nunca ven fichas ajenas.
 - **Consejo:** muestra qué ficha tiraría cada uno de los tres niveles y por qué.
 - **Registro de fichas:** deduce qué fichas puede o no tener cada jugador según el historial de la mano.
 - **Notas:** marca una ficha de otro jugador como "creo que sí la tiene" o "creo que no".
 - **Tu mano:** toca una ficha para girarla y arrástrala para acomodarla.
 - **Cuenta con Google (opcional):** entras con Google y eres el mismo jugador en cualquier dispositivo. Si no, juegas como invitado.
 - **Sin scroll:** cada pantalla cabe completa en el teléfono. Las opciones, el menú de la partida, el registro y el consejo se abren en ventanas que suben desde abajo y se cierran con ✕, tocando fuera o con el botón "atrás" del teléfono.
-- **Escoger asiento alrededor de la mesa:** tocas un asiento para sentarte, agregar a la compu (con su nivel), cambiarle el nivel o quitarla.
+- **Escoger asiento alrededor de la mesa:** tocas un asiento para sentarte, agregar a la compu (escogiendo su bot de la lista), cambiarle el bot o quitarla.
 - **Tema claro y oscuro,** según la configuración del sistema.
 
 ## Modos de juego

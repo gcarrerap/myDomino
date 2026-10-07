@@ -1,12 +1,27 @@
-// Textos y etiquetas compartidos: modo de juego, marcadores, colores de pareja y el selector de nivel de la compu.
+// Textos y etiquetas compartidos: modo de juego, marcadores, colores de pareja y la lista de bots de la compu.
 import { nameOf } from "../engine/index.js";
-import { LEVELS } from "../ai/index.js";
+import { PROFILES, CAPACITIES, getProfile } from "../ai/index.js";
+import { esc } from "./dom.js";
 
-export const LEVEL_HELP = { 1: "Tira mulas y fichas pesadas.", 2: "Busca dominar: hacer pasar a los rivales y ayudar a su pareja.", 3: "Como el intermedio, pero imagina dónde están las fichas usando su registro y leyendo los tiros de los demás, y prueba cada tiro hasta el final de la mano." };
-
-export function levelSeg(id, lv) {
-  return `<div class="seg lvl" role="group" aria-label="Nivel">${[1, 2, 3].map((l) => `<button data-lvl="${id}:${l}" aria-pressed="${lv === l}">${LEVELS[l]}</button>`).join("")}</div>`;
+// Lista de los 20 bots (#27): los tres de siempre arriba y luego los demás agrupados por capacidad mental
+const GROUPS = [["Los de siempre", Object.values(PROFILES).filter((p) => p.nivel)]];
+for (const [k, c] of Object.entries(CAPACITIES)) {
+  const list = Object.values(PROFILES).filter((p) => !p.nivel && p.capacidad === k);
+  if (list.length) GROUPS.push([c.nombre[0].toUpperCase() + c.nombre.slice(1), list]);
 }
+export const botOptionText = (p) => `${p.nombre} · ${p.desc}`;
+// Nombre corto para el letrero del asiento: "Intermedio" o "Bot 07"
+export const botShort = (v) => { const p = getProfile(v); return p.nivel ? p.desc : p.nombre; };
+export const botHelp = (v) => getProfile(v).detalle;
+
+// <select> con los 20 bots. key identifica a quién se le cambia el bot (lo lee quien conecta el evento).
+export function botSelect(key, value, label = "Bot de la compu") {
+  const cur = getProfile(value).id;
+  const groups = GROUPS.map(([g, list]) => `<optgroup label="${esc(g)}">${list.map((p) => `<option value="${p.id}"${p.id === cur ? " selected" : ""}>${esc(botOptionText(p))}</option>`).join("")}</optgroup>`).join("");
+  return `<select class="botsel" data-bot="${esc(key)}" aria-label="${esc(label)}">${groups}</select>`;
+}
+
+export const BOT_HELP = `Cada bot combina un <b>estilo</b> (qué le importa: soltar puntos, imponer su número, apoyar a su pareja, hacer pasar a los rivales, contar, arriesgar o adaptarse) con una <b>capacidad</b> (qué tanto recuerda, deduce y analiza: distraído, casual, atento, experto o maestro). Básico, Intermedio y Avanzado son los de siempre.`;
 
 export function modeLabel(c) {
   return modeLabel0(c) + (c.timer === false ? " · sin límite de tiempo" : "");
